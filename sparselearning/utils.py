@@ -208,7 +208,7 @@ def plot_class_feature_histograms(args, model, device, test_loader, optimizer):
     agg = {}
     num_classes = 10
     feat_id = 0
-    sparse = not args.dense
+    sparse = args.sparse
     model_name = 'alexnet'
     #model_name = 'vgg'
     #model_name = 'wrn'
