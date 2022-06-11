@@ -213,7 +213,7 @@ def train(args, model, device, train_loader, optimizer, epoch, mask=None):
         if batch_idx % args.log_interval == 0:
             print_and_log('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} Accuracy: {}/{} ({:.3f}% '.format(
                 epoch, batch_idx * len(data), len(train_loader) * args.batch_size,
-                       100. * batch_idx / len(train_loader), loss.item(), correct, n, 100. * correct / float(n)))
+                       100. * batch_idx / len(train_loader), train_loss.item(), correct, n, 100. * correct / float(n)))
 
     # training summary
     print_and_log('\n{}: Average loss: {:.4f}, Accuracy: {}/{} ({:.3f}%)\n'.format(
@@ -222,7 +222,7 @@ def train(args, model, device, train_loader, optimizer, epoch, mask=None):
 
     print_and_log('\n{}: Adversarial Average loss: {:.4f}, Accuracy: {}/{} ({:.3f}%)\n'.format(
         'Training summary',
-        train_loss / batch_idx, correctAdv, n, 100. * correctAdv / float(n)))
+        attack_loss / batch_idx, correctAdv, n, 100. * correctAdv / float(n)))
 
 def evaluate(args, model, device, test_loader, is_test_set=False):
     model.eval()
