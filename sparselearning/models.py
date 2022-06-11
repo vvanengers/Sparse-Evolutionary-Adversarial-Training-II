@@ -6,6 +6,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+class BasicModule(nn.Module):
+    def no_grad(self):
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def with_grad(self):
+        for param in self.parameters():
+            param.requires_grad = True
+
+    def clear_grad(self):
+        for param in self.parameters():
+            param.grad = None
+
 class SparseSpeedupBench(object):
     """Class to benchmark speedups for convolutional layers.
 
@@ -131,7 +145,7 @@ class SparseSpeedupBench(object):
 
 
 
-class AlexNet(nn.Module):
+class AlexNet(BasicModule):
     """AlexNet with batch normalization and without pooling.
 
     This is an adapted version of AlexNet as taken from
@@ -198,7 +212,7 @@ class AlexNet(nn.Module):
         x = self.classifier(x)
         return F.log_softmax(x, dim=1)
 
-class LeNet_300_100(nn.Module):
+class LeNet_300_100(BasicModule):
     """Simple NN with hidden layers [300, 100]
 
     Based on https://github.com/mi-lad/snip/blob/master/train.py
@@ -218,7 +232,7 @@ class LeNet_300_100(nn.Module):
         x3 = self.fc3(x2)
         return F.log_softmax(x3, dim=1)
 
-class MLP_CIFAR10(nn.Module):
+class MLP_CIFAR10(BasicModule):
     def __init__(self, save_features=None, bench_model=False):
         super(MLP_CIFAR10, self).__init__()
 
@@ -232,7 +246,7 @@ class MLP_CIFAR10(nn.Module):
         return F.log_softmax(self.fc3(x1), dim=1)
 
 
-class LeNet_5_Caffe(nn.Module):
+class LeNet_5_Caffe(BasicModule):
     """LeNet-5 without padding in the first layer.
     This is based on Caffe's implementation of Lenet-5 and is slightly different
     from the vanilla LeNet-5. Note that the first layer does NOT have padding
@@ -277,7 +291,7 @@ VGG_CONFIGS = {
 }
 
 
-class VGG16(nn.Module):
+class VGG16(BasicModule):
     """
     This is a base class to generate three VGG variants used in SNIP paper:
         1. VGG-C (16 layers)
@@ -362,7 +376,8 @@ class VGG16(nn.Module):
 
 
 
-class WideResNet(nn.Module):
+
+class WideResNet(BasicModule):
     """Wide Residual Network with varying depth and width.
 
     For more info, see the paper: Wide Residual Networks by Sergey Zagoruyko, Nikos Komodakis
@@ -435,7 +450,7 @@ class WideResNet(nn.Module):
         return F.log_softmax(out, dim=1)
 
 
-class BasicBlock(nn.Module):
+class BasicBlock(BasicModule):
     """Wide Residual Network basic block
 
     For more info, see the paper: Wide Residual Networks by Sergey Zagoruyko, Nikos Komodakis
@@ -491,7 +506,7 @@ class BasicBlock(nn.Module):
 
         return torch.add(x if self.equalInOut else self.convShortcut(x), out)
 
-class NetworkBlock(nn.Module):
+class NetworkBlock(BasicModule):
     """Wide Residual Network network block which holds basic blocks.
 
     For more info, see the paper: Wide Residual Networks by Sergey Zagoruyko, Nikos Komodakis
@@ -525,7 +540,7 @@ class NetworkBlock(nn.Module):
 ################################################ ResNet ####################################################
 ############################################################################################################
 
-class BasicBlock(nn.Module):
+class BasicBlock(BasicModule):
     expansion = 1
 
     def __init__(self, in_planes, planes, stride=1):
@@ -550,7 +565,7 @@ class BasicBlock(nn.Module):
         return out
 
 
-class Bottleneck(nn.Module):
+class Bottleneck(BasicModule):
     expansion = 4
 
     def __init__(self, in_planes, planes, stride=1):
@@ -578,7 +593,7 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
+class ResNet(BasicModule):
     def __init__(self, block, num_blocks, num_classes):
         super(ResNet, self).__init__()
         self.in_planes = 64
