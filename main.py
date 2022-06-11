@@ -28,7 +28,7 @@ import wandb
 
 import warnings
 
-wandb.init(project="Fast-AT", entity="ut_acv")
+wandb.init(project="Fast-BAT", entity="ut_acv")
 warnings.filterwarnings("ignore", category=UserWarning)
 cudnn.benchmark = True
 cudnn.deterministic = True
@@ -88,6 +88,10 @@ def print_and_log(msg):
     logger.info(msg)
 
 
+def _attack_loss(predictions, labels):
+    return -torch.nn.CrossEntropyLoss(reduction='sum')(predictions, labels)
+
+
 def train(args, model, device, train_loader, optimizer, epoch, mask=None):
     model.train()
     train_loss = 0
@@ -95,11 +99,14 @@ def train(args, model, device, train_loader, optimizer, epoch, mask=None):
     totalAdv = 0
     correctAdv = 0
     alpha = 1.25 * args.epsilon
+    constraint_type = np.inf
     n = 0
     print(f'Aversarial training {args.adversarial_training}')
     for batch_idx, (data, target) in enumerate(train_loader):
-
         data, target = data.to(device), target.to(device)
+        real_batch = data.shape[0]
+        channels = data.shape[1]
+        image_size = data.shape[2]
         if args.fp16:
             data = data.half()
         if not args.adversarial_training:
@@ -114,26 +121,94 @@ def train(args, model, device, train_loader, optimizer, epoch, mask=None):
             delta.data = torch.clamp(delta + alpha * torch.sign(grad), -args.epsilon, args.epsilon)
             delta.data = torch.max(torch.min(1 - data, delta.data), 0 - data)
             delta = delta.detach()
+        elif args.attack == "fast_bat":
+            z_init = torch.clamp(
+                data + torch.FloatTensor(data.shape).uniform_(-args.epsilon, args.epsilon).to(device),
+                min=0, max=1
+            ) - data
+            z_init.requires_grad_(True)
 
-        optimizer.zero_grad()
-        output = model(torch.clamp(data + delta, 0, 1))
+            model.clear_grad()
+            model.with_grad()
+            attack_loss = _attack_loss(model(data + z_init), target)
+            grad_attack_loss_delta = torch.autograd.grad(attack_loss, z_init, retain_graph=True, create_graph=True)[
+                0]
+            delta = z_init - args.attack_lr * grad_attack_loss_delta
+            delta = torch.clamp(delta, min=-args.epsilon, max=args.epsilon)
+            delta = torch.clamp(data + delta, min=0, max=1) - data
 
-        loss = F.nll_loss(output, target)
+            delta = delta.detach().requires_grad_(True)
+            attack_loss_second = _attack_loss(model(data + delta), target)
+            grad_attack_loss_delta_second = \
+                torch.autograd.grad(attack_loss_second, delta, retain_graph=True, create_graph=True)[0] \
+                    .view(real_batch, 1, channels * image_size * image_size)
+            delta_star = delta - args.attack_lr * grad_attack_loss_delta_second.detach().view(data.shape)
+            delta_star = torch.clamp(delta_star, min=-args.epsilon, max=args.epsilon)
+            delta_star = torch.clamp(data + delta_star, min=0, max=1) - data
+            z = delta_star.clone().detach().view(real_batch, -1)
 
-        train_loss += loss.item()
-        pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-        correct += pred.eq(target.view_as(pred)).sum().item()
-        n += target.shape[0]
+            if constraint_type == np.inf:
+                # H: (batch, channel * image_size * image_size)
+                z_min = torch.max(-data.view(real_batch, -1),
+                                  -args.epsilon * torch.ones_like(data.view(real_batch, -1)))
+                z_max = torch.min(1 - data.view(real_batch, -1),
+                                  args.epsilon * torch.ones_like(data.view(real_batch, -1)))
+                H = ((z > z_min + 1e-7) & (z < z_max - 1e-7)).to(torch.float32)
+            else:
+                raise NotImplementedError
 
-        if args.fp16:
-            optimizer.backward(loss)
-        else:
-            loss.backward()
+            delta_cur = delta_star.detach().requires_grad_(True)
 
-        if mask is not None:
-            mask.step()
-        else:
+            model.no_grad()
+            lgt = model(data + delta_cur)
+            delta_star_loss = loss(lgt, target)
+            delta_star_loss.backward()
+            delta_outer_grad = delta_cur.grad.view(real_batch, -1)
+
+            hessian_inv_prod = delta_outer_grad / args.lmbda
+            bU = (H * hessian_inv_prod).unsqueeze(-1)
+
+            model.with_grad()
+            model.clear_grad()
+            b_dot_product = grad_attack_loss_delta_second.bmm(bU).view(-1).sum(dim=0)
+            b_dot_product.backward()
+            cross_term = [-param.grad / real_batch for param in model.parameters()]
+
+            model.clear_grad()
+            model.with_grad()
+            predictions = model(data + delta_star)
+            train_loss = loss(predictions, target) / real_batch
+            optimizer.zero_grad()
+            train_loss.backward()
+
+            with torch.no_grad():
+                for p, cross in zip(model.parameters(), cross_term):
+                    new_grad = p.grad + cross
+                    p.grad.copy_(new_grad)
+
+            del cross_term, H, grad_attack_loss_delta_second
             optimizer.step()
+
+        #
+        # optimizer.zero_grad()
+        # output = model(torch.clamp(data + delta, 0, 1))
+        #
+        # loss = F.nll_loss(output, target)
+        #
+        # train_loss += loss.item()
+        # pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        # correct += pred.eq(target.view_as(pred)).sum().item()
+        # n += target.shape[0]
+        #
+        # if args.fp16:
+        #     optimizer.backward(loss)
+        # else:
+        #     loss.backward()
+        #
+        # if mask is not None:
+        #     mask.step()
+        # else:
+        #     optimizer.step()
 
         if batch_idx % args.log_interval == 0:
             print_and_log('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} Accuracy: {}/{} ({:.3f}% '.format(
@@ -301,6 +376,10 @@ def main():
                         help='Wich attack method to use. Empty string for no attack method')
     parser.add_argument('--adversarial_training', type=bool, default=False)
     parser.add_argument('--epsilon', type=float, default=0.3, help='Intensity of adversarial training')
+    parser.add_argument('--attack_lr', default=2., type=float,
+                        help='attack learning rate (default: 2./255). Note this parameter is for training only. The attack lr is always set to attack_eps / 4 when evaluating.')
+    parser.add_argument('--lmbda', default=10.0, type=float, help="The parameter lambda for Fast-BAT.")
+
     # ITOP settings
     sparselearning.core.add_sparse_args(parser)
 
