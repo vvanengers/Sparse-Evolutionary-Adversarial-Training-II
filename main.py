@@ -7,15 +7,21 @@ import logging
 import hashlib
 import copy
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
+from art.attacks.evasion import FastGradientMethod
+from art.estimators.classification import PyTorchClassifier
+from art.utils import load_mnist, load_cifar10
+from torch import nn
 
 import sparselearning
 from sparselearning.core import Masking, CosineDecay, LinearDecay
 from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, ResNet18
-from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders
+from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders, \
+    plot_class_feature_histograms
 import torchvision
 import torchvision.transforms as transforms
 import warnings
@@ -79,6 +85,7 @@ def train(args, model, device, train_loader, optimizer, epoch, mask=None):
     train_loss = 0
     correct = 0
     n = 0
+
     for batch_idx, (data, target) in enumerate(train_loader):
 
         data, target = data.to(device), target.to(device)
@@ -199,8 +206,10 @@ def main():
 
         if args.data == 'mnist':
             train_loader, valid_loader, test_loader = get_mnist_dataloaders(args, validation_split=args.valid_split)
+            (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_mnist()
         elif args.data == 'cifar10':
             train_loader, valid_loader, test_loader = get_cifar10_dataloaders(args, args.valid_split, max_threads=args.max_threads)
+            (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_cifar10()
         elif args.data == 'cifar100':
             train_loader, valid_loader, test_loader = get_cifar100_dataloaders(args, args.valid_split, max_threads=args.max_threads)
         if args.model not in models:
@@ -274,28 +283,57 @@ def main():
 
         best_acc = 0.0
 
-        for epoch in range(1, args.epochs*args.multiplier + 1):
-            t0 = time.time()
-            train(args, model, device, train_loader, optimizer, epoch, mask)
-            lr_scheduler.step()
-            if args.valid_split > 0.0:
-                val_acc = evaluate(args, model, device, valid_loader)
+        criterion = nn.CrossEntropyLoss()
+        classifier = PyTorchClassifier(
+            model=model,
+            clip_values=(min_pixel_value, max_pixel_value),
+            loss=criterion,
+            optimizer=optimizer,
+            input_shape=(3, 28, 28),
+            nb_classes=10,
+        )
+        # Step 4: Train the ART classifier
 
-            if val_acc > best_acc:
-                print('Saving model')
-                best_acc = val_acc
-                torch.save(model.state_dict(), args.save)
+        classifier.fit(x_train, y_train, batch_size=64, nb_epochs=3)
 
-            print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(optimizer.param_groups[0]['lr'], time.time() - t0))
-        print('Testing model')
-        model.load_state_dict(torch.load(args.save))
-        evaluate(args, model, device, test_loader, is_test_set=True)
-        print_and_log("\nIteration end: {0}/{1}\n".format(i+1, args.iters))
+        # Step 5: Evaluate the ART classifier on benign test examples
 
-        layer_fired_weights, total_fired_weights = mask.fired_masks_update()
-        for name in layer_fired_weights:
-            print('The final percentage of fired weights in the layer', name, 'is:', layer_fired_weights[name])
-        print('The final percentage of the total fired weights is:', total_fired_weights)
+        predictions = classifier.predict(x_test)
+        accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+        print("Accuracy on benign test examples: {}%".format(accuracy * 100))
+
+        # Step 6: Generate adversarial test examples
+        attack = FastGradientMethod(estimator=classifier, eps=0.2)
+        x_test_adv = attack.generate(x=x_test)
+
+        # Step 7: Evaluate the ART classifier on adversarial test examples
+
+        predictions = classifier.predict(x_test_adv)
+        accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+        print("Accuracy on adversarial test examples: {}%".format(accuracy * 100))
+
+        # for epoch in range(1, args.epochs*args.multiplier + 1):
+        #     t0 = time.time()
+        #     train(args, model, device, train_loader, optimizer, epoch, mask)
+        #     lr_scheduler.step()
+        #     if args.valid_split > 0.0:
+        #         val_acc = evaluate(args, model, device, valid_loader)
+        #
+        #     if val_acc > best_acc:
+        #         print('Saving model')
+        #         best_acc = val_acc
+        #         torch.save(model.state_dict(), args.save)
+        #
+        #     print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(optimizer.param_groups[0]['lr'], time.time() - t0))
+        # print('Testing model')
+        # model.load_state_dict(torch.load(args.save))
+        # evaluate(args, model, device, test_loader, is_test_set=True)
+        # print_and_log("\nIteration end: {0}/{1}\n".format(i+1, args.iters))
+        #
+        # layer_fired_weights, total_fired_weights = mask.fired_masks_update()
+        # for name in layer_fired_weights:
+        #     print('The final percentage of fired weights in the layer', name, 'is:', layer_fired_weights[name])
+        # print('The final percentage of the total fired weights is:', total_fired_weights)
 
 if __name__ == '__main__':
    main()
