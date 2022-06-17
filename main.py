@@ -13,10 +13,12 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 
 import matplotlib.pyplot as plt
+import deeprobust
+from deeprobust.image.config import defense_params, attack_params
+from deeprobust.image import attack as Attack
 
-import deeprobust.image.defense.fgsmtraining
 import sparselearning
-from DeepRobust.build.lib.deeprobust.image.config import defense_params
+
 from sparselearning.core import Masking, CosineDecay, LinearDecay
 from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, ResNet18
 from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders, \
@@ -24,8 +26,7 @@ from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders,
 import torchvision
 from torchvision import transforms,datasets
 import torchvision.transforms as transforms
-from deeprobust.image import attack as Attack
-from deeprobust.image.config import attack_params
+
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -93,6 +94,14 @@ def print_and_log(msg):
     print(msg)
     logger.info(msg)
 
+def save(epoch, state_dict, optimizer, location):
+    torch.save({
+        'epoch': epoch,
+        'state_dict': state_dict,
+        'optimizer': {'defaults': optimizer.defaults, 'param_groups': optimizer.param_groups, 'state': optimizer.state},
+    }, location)
+
+
 def train(args, model, device, train_loader, optimizer, epoch, mask=None):
     model.train()
     train_loss = 0
@@ -157,7 +166,8 @@ def evaluate(args, model, device, test_loader, is_test_set=False):
 def adversarial_training(model, train_adv, train_loader, test_loader):
     print(f'Start adversarial training with training method: {train_adv}.')
     model = deeprobust.image.defense.fgsmtraining.FGSMtraining(model, 'cuda')
-    model.generate(train_loader, test_loader, **defense_params['FGSMtraining_CIFAR10'])
+    model = model.generate(train_loader, test_loader, **defense_params['FGSMtraining_CIFAR10'])
+    return model
 
 def adversarial_attack(model, method_name, test_loader):
     print(f'Start adversarial attack with attack method: {method_name}.')
@@ -213,7 +223,9 @@ def main():
                         help='how many batches to wait before logging training status')
     parser.add_argument('--optimizer', type=str, default='sgd', help='The optimizer to use. Default: sgd. Options: sgd, adam.')
     randomhash = ''.join(str(time.time()).split('.'))
-    parser.add_argument('--save', type=str, default=randomhash + '.pt',
+    parser.add_argument('--save', type=str, default=f'models/{randomhash}.pt',
+                        help='path to save the final model')
+    parser.add_argument('--save_adv', type=str, default=f'models/{randomhash}_adv.pt',
                         help='path to save the final model')
     parser.add_argument('--data', type=str, default='mnist')
     parser.add_argument('--decay_frequency', type=int, default=25000)
@@ -297,7 +309,6 @@ def main():
 
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[int(args.epochs / 2) * args.multiplier, int(args.epochs * 3 / 4) * args.multiplier], last_epoch=-1)
 
-
         if args.resume:
             if os.path.isfile(args.resume):
                 print_and_log("=> loading checkpoint '{}'".format(args.resume))
@@ -345,11 +356,12 @@ def main():
                 if val_acc > best_acc:
                     print('Saving model')
                     best_acc = val_acc
-                    torch.save(model.state_dict(), args.save)
+                    # torch.save(model.state_dict(), args.save)
+                    save(epoch, model.state_dict(), optimizer, args.save)
 
                 print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(optimizer.param_groups[0]['lr'], time.time() - t0))
             print('Testing model')
-            model.load_state_dict(torch.load(args.save))
+            model.load_state_dict(torch.load(args.save)['state_dict'])
             evaluate(args, model, device, test_loader, is_test_set=True)
             print_and_log("\nIteration end: {0}/{1}\n".format(i+1, args.iters))
             if args.sparse:
@@ -359,7 +371,8 @@ def main():
                 print('The final percentage of the total fired weights is:', total_fired_weights)
 
         if args.train_adv:
-            adversarial_training(model, args.train_adv, train_loader, test_loader)
+            model = adversarial_training(model, args.train_adv, train_loader, test_loader)
+            torch.save(model.state_dict(), args.save_adv)
 
         if args.attack_adv:
             adversarial_attack(model, args.attack_adv, test_loader)
