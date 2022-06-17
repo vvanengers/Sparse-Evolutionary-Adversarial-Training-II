@@ -358,6 +358,7 @@ def main():
                     best_acc = val_acc
                     # torch.save(model.state_dict(), args.save)
                     save(epoch, model.state_dict(), optimizer, args.save)
+            save(epoch, model.state_dict(), optimizer, args.save)
 
                 print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(optimizer.param_groups[0]['lr'], time.time() - t0))
             print('Testing model')
