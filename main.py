@@ -360,7 +360,7 @@ def main():
                     save(epoch, model.state_dict(), optimizer, args.save)
             save(epoch, model.state_dict(), optimizer, args.save)
 
-                print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(optimizer.param_groups[0]['lr'], time.time() - t0))
+            print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(optimizer.param_groups[0]['lr'], time.time() - t0))
             print('Testing model')
             model.load_state_dict(torch.load(args.save)['state_dict'])
             evaluate(args, model, device, test_loader, is_test_set=True)
