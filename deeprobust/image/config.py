@@ -8,6 +8,13 @@ attack_params = {
     'clip_min': None
     },
 
+    "FGSM_CIFAR10": {
+    'epsilon': 0.2,
+    'order': np.inf,
+    'clip_max': None,
+    'clip_min': None
+    },
+
     "PGD_CIFAR10": {
     'epsilon': 0.1,
     'clip_max': 1.0,
@@ -49,6 +56,15 @@ defense_params = {
     },
 
     "FGSMtraining_MNIST":{
+        'save_dir': "./defense_model",
+        'save_model': True,
+        'save_name' : "mnist_fgsmtraining_0.2.pt",
+        'epsilon' : 0.2,
+        'epoch_num' : 50,
+        'lr_train' : 0.001
+    },
+
+    "FGSMtraining_CIFAR10":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
