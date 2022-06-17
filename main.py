@@ -14,9 +14,9 @@ import torch.backends.cudnn as cudnn
 
 import matplotlib.pyplot as plt
 
-import deeprobust.image.defense.fgsmtraining
 import sparselearning
-from DeepRobust.build.lib.deeprobust.image.config import defense_params
+from DeepRobust.build.lib import deeprobust
+from DeepRobust.build.lib.deeprobust.image.config import defense_params, attack_params
 from sparselearning.core import Masking, CosineDecay, LinearDecay
 from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, ResNet18
 from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders, \
@@ -25,7 +25,6 @@ import torchvision
 from torchvision import transforms,datasets
 import torchvision.transforms as transforms
 from deeprobust.image import attack as Attack
-from deeprobust.image.config import attack_params
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
