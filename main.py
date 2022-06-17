@@ -12,12 +12,21 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 
+import matplotlib.pyplot as plt
+
+import deeprobust.image.defense.fgsmtraining
 import sparselearning
+from DeepRobust.build.lib.deeprobust.image.config import defense_params
 from sparselearning.core import Masking, CosineDecay, LinearDecay
 from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, ResNet18
-from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders
+from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders, \
+    plot_class_feature_histograms
 import torchvision
+from torchvision import transforms,datasets
 import torchvision.transforms as transforms
+from deeprobust.image import attack as Attack
+from deeprobust.image.config import attack_params
+import numpy as np
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 cudnn.benchmark = True
@@ -42,6 +51,16 @@ models['wrn-28-2'] = (WideResNet, [28, 2, 10, 0.3])
 models['wrn-22-8'] = (WideResNet, [22, 8, 10, 0.3])
 models['wrn-16-8'] = (WideResNet, [16, 8, 10, 0.3])
 models['wrn-16-10'] = (WideResNet, [16, 10, 10, 0.3])
+
+attacks = {}
+attacks['PGD'] = (Attack.pgd.PGD)
+attacks['cw'] = (Attack.cw.CarliniWagner)
+attacks['FGSM'] = (Attack.fgsm.FGSM)
+attacks['LBFGS'] = (Attack.lbfgs.LBFGS)
+attacks['DeepFool'] = (Attack.deepfool.DeepFool)
+attacks['Onepixel'] = (Attack.onepixel.Onepixel)
+
+
 
 def setup_logger(args):
     global logger
@@ -135,6 +154,41 @@ def evaluate(args, model, device, test_loader, is_test_set=False):
         test_loss, correct, n, 100. * correct / float(n)))
     return correct / float(n)
 
+def adversarial_training(model, train_adv, train_loader, test_loader):
+    print(f'Start adversarial training with training method: {train_adv}.')
+    model = deeprobust.image.defense.fgsmtraining.FGSMtraining(model, 'cuda')
+    model.generate(train_loader, test_loader, **defense_params['FGSMtraining_CIFAR10'])
+
+def adversarial_attack(model, method_name, test_loader):
+    print(f'Start adversarial attack with attack method: {method_name}.')
+    total = 0
+    correct_orig = 0
+    correct_adv = 0
+    method = attacks[method_name]
+    for batch_num, (data, target) in enumerate(test_loader):
+        print(f'Adversarial attack batch {batch_num}/{len(test_loader)}')
+        total += len(data)
+        data = data.to('cuda').float()
+
+        predict0 = model(data)
+        predict0 = predict0.argmax(dim=1, keepdim=True)
+
+        adversary = method(model)
+        AdvExArray = adversary.generate(data, target, **attack_params['FGSM_CIFAR10']).float()
+
+        predict1 = model(AdvExArray)
+        predict1 = predict1.argmax(dim=1, keepdim=True)
+
+        labels = np.array(target.cpu())
+        pred_orig = np.array(predict0.cpu()).flatten()
+        pred_adv = np.array(predict1.cpu()).flatten()
+        correct_orig += np.sum(labels == pred_orig)
+        correct_adv += np.sum(labels == pred_adv)
+    print('=== Results ===')
+    print(f'Total: {total}')
+    print(f'Original predictions: {correct_orig}/{total} ({100 * correct_orig / total}%)')
+    print(f'Adversarial predictions: {correct_adv}/{total} ({100 * correct_adv / total}%)')
+
 
 def main():
     # Training settings
@@ -174,6 +228,11 @@ def main():
     parser.add_argument('--save-features', action='store_true', help='Resumes a saved model and saves its feature data to disk for plotting.')
     parser.add_argument('--bench', action='store_true', help='Enables the benchmarking of layers and estimates sparse speedups')
     parser.add_argument('--max-threads', type=int, default=10, help='How many threads to use for data loading.')
+    parser.add_argument('--train_reg', type=bool, default=False, help='Whether model should be trained regularly.')
+    parser.add_argument('--train_adv', type=str, help='Which adversarial train method to use. Null '
+                                                                  ' for no adversarial training.')
+    parser.add_argument('--attack_adv', type=str,
+                        help='Which adversarial attack method to use. Null for no adversarial attack.')
     # ITOP settings
     sparselearning.core.add_sparse_args(parser)
 
@@ -252,7 +311,7 @@ def main():
                 evaluate(args, model, device, test_loader)
                 model.feats = []
                 model.densities = []
-                plot_class_feature_histograms(args, model, device, train_loader, optimizer)
+                # plot_class_feature_histograms(args, model, device, train_loader, optimizer)
             else:
                 print_and_log("=> no checkpoint found at '{}'".format(args.resume))
 
@@ -273,29 +332,38 @@ def main():
             mask.add_module(model, sparse_init=args.sparse_init, density=args.density)
 
         best_acc = 0.0
+        print(f'Train: {args.train_reg}')
+        if args.train_reg:
+            print(f'Start epoch: {args.start_epoch}')
+            for epoch in range(args.start_epoch, args.epochs*args.multiplier + 1):
+                t0 = time.time()
+                train(args, model, device, train_loader, optimizer, epoch, mask)
+                lr_scheduler.step()
+                if args.valid_split > 0.0:
+                    val_acc = evaluate(args, model, device, valid_loader)
 
-        for epoch in range(1, args.epochs*args.multiplier + 1):
-            t0 = time.time()
-            train(args, model, device, train_loader, optimizer, epoch, mask)
-            lr_scheduler.step()
-            if args.valid_split > 0.0:
-                val_acc = evaluate(args, model, device, valid_loader)
+                if val_acc > best_acc:
+                    print('Saving model')
+                    best_acc = val_acc
+                    torch.save(model.state_dict(), args.save)
 
-            if val_acc > best_acc:
-                print('Saving model')
-                best_acc = val_acc
-                torch.save(model.state_dict(), args.save)
+                print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(optimizer.param_groups[0]['lr'], time.time() - t0))
+            print('Testing model')
+            model.load_state_dict(torch.load(args.save))
+            evaluate(args, model, device, test_loader, is_test_set=True)
+            print_and_log("\nIteration end: {0}/{1}\n".format(i+1, args.iters))
+            if args.sparse:
+                layer_fired_weights, total_fired_weights = mask.fired_masks_update()
+                for name in layer_fired_weights:
+                    print('The final percentage of fired weights in the layer', name, 'is:', layer_fired_weights[name])
+                print('The final percentage of the total fired weights is:', total_fired_weights)
 
-            print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(optimizer.param_groups[0]['lr'], time.time() - t0))
-        print('Testing model')
-        model.load_state_dict(torch.load(args.save))
-        evaluate(args, model, device, test_loader, is_test_set=True)
-        print_and_log("\nIteration end: {0}/{1}\n".format(i+1, args.iters))
+        if args.train_adv:
+            adversarial_training(model, args.train_adv, train_loader, test_loader)
 
-        layer_fired_weights, total_fired_weights = mask.fired_masks_update()
-        for name in layer_fired_weights:
-            print('The final percentage of fired weights in the layer', name, 'is:', layer_fired_weights[name])
-        print('The final percentage of the total fired weights is:', total_fired_weights)
+        if args.attack_adv:
+            adversarial_attack(model, args.attack_adv, test_loader)
+
 
 if __name__ == '__main__':
    main()
