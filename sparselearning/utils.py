@@ -107,7 +107,7 @@ def get_cifar10_dataloaders(args, validation_split=0.0, max_threads=10):
         train_loader = torch.utils.data.DataLoader(
             full_dataset,
             args.batch_size,
-            num_workers=8,
+            num_workers=4,
             pin_memory=True, shuffle=True)
 
     print('Train loader length', len(train_loader))
