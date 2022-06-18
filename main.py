@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import deeprobust
 from deeprobust.image.config import defense_params, attack_params
 from deeprobust.image import attack as Attack
+from deeprobust.image import defense as Defense
 
 import sparselearning
 
@@ -37,30 +38,36 @@ if not os.path.exists('./models'): os.mkdir('./models')
 if not os.path.exists('./logs'): os.mkdir('./logs')
 logger = None
 
-models = {}
-models['MLPCIFAR10'] = (MLP_CIFAR10,[])
-models['lenet5'] = (LeNet_5_Caffe,[])
-models['lenet300-100'] = (LeNet_300_100,[])
-models['ResNet34'] = ()
-models['ResNet18'] = ()
-models['alexnet-s'] = (AlexNet, ['s', 10])
-models['alexnet-b'] = (AlexNet, ['b', 10])
-models['vgg-c'] = (VGG16, ['C', 10])
-models['vgg-d'] = (VGG16, ['D', 10])
-models['vgg-like'] = (VGG16, ['like', 10])
-models['wrn-28-2'] = (WideResNet, [28, 2, 10, 0.3])
-models['wrn-22-8'] = (WideResNet, [22, 8, 10, 0.3])
-models['wrn-16-8'] = (WideResNet, [16, 8, 10, 0.3])
-models['wrn-16-10'] = (WideResNet, [16, 10, 10, 0.3])
+models = {
+    'MLPCIFAR10': (MLP_CIFAR10, []),
+    'lenet5': (LeNet_5_Caffe, []),
+    'lenet300-100': (LeNet_300_100, []),
+    'ResNet34': (()),
+    'ResNet18': (()),
+    'alexnet-s': (AlexNet, ['s', 10]),
+    'alexnet-b': (AlexNet, ['b', 10]),
+    'vgg-c': (VGG16, ['C', 10]),
+    'vgg-d': (VGG16, ['D', 10]),
+    'vgg-like': (VGG16, ['like', 10]),
+    'wrn-28-2': (WideResNet, [28, 2, 10, 0.3]),
+    'wrn-22-8': (WideResNet, [22, 8, 10, 0.3]),
+    'wrn-16-8': (WideResNet, [16, 8, 10, 0.3]),
+    'wrn-16-10': (WideResNet, [16, 10, 10, 0.3])}
 
-attacks = {}
-attacks['PGD'] = (Attack.pgd.PGD)
-attacks['cw'] = (Attack.cw.CarliniWagner)
-attacks['FGSM'] = (Attack.fgsm.FGSM)
-attacks['LBFGS'] = (Attack.lbfgs.LBFGS)
-attacks['DeepFool'] = (Attack.deepfool.DeepFool)
-attacks['Onepixel'] = (Attack.onepixel.Onepixel)
+attacks = {
+    'PGD': Attack.pgd.PGD,
+    'cw': Attack.cw.CarliniWagner,
+    'FGSM': Attack.fgsm.FGSM,
+    'LBFGS': Attack.lbfgs.LBFGS,
+    'DeepFool': Attack.deepfool.DeepFool,
+    'Onepixel': Attack.onepixel.Onepixel
+}
 
+defences = {
+    'FGSM': Defense.fgsmtraining.FGSMtraining,
+    'PGD': Defense.pgdtraining.PGDtraining,
+    'YOPOPGD': Defense.YOPO.YOPOpgd.FASTPGD,
+}
 
 
 def setup_logger(args):
@@ -163,10 +170,11 @@ def evaluate(args, model, device, test_loader, is_test_set=False):
         test_loss, correct, n, 100. * correct / float(n)))
     return correct / float(n)
 
-def adversarial_training(model, train_adv, train_loader, test_loader):
-    print(f'Start adversarial training with training method: {train_adv}.')
-    model = deeprobust.image.defense.fgsmtraining.FGSMtraining(model, 'cuda')
-    model = model.generate(train_loader, test_loader, **defense_params['FGSMtraining_CIFAR10'])
+def adversarial_training(model, method_name, train_loader, test_loader):
+    print(f'Start adversarial training with training method: {method_name}.')
+    method = defences[method_name]
+    model = method(model, 'cuda')
+    model = model.generate(train_loader, test_loader, **defense_params['PGDtraining_cifar10'])
     return model
 
 def adversarial_attack(model, method_name, test_loader):
@@ -184,7 +192,7 @@ def adversarial_attack(model, method_name, test_loader):
         predict0 = predict0.argmax(dim=1, keepdim=True)
 
         adversary = method(model)
-        AdvExArray = adversary.generate(data, target, **attack_params['FGSM_CIFAR10']).float()
+        AdvExArray = adversary.generate(data, target, **attack_params['PGD_CIFAR10']).float()
 
         predict1 = model(AdvExArray)
         predict1 = predict1.argmax(dim=1, keepdim=True)
@@ -240,7 +248,7 @@ def main():
     parser.add_argument('--save-features', action='store_true', help='Resumes a saved model and saves its feature data to disk for plotting.')
     parser.add_argument('--bench', action='store_true', help='Enables the benchmarking of layers and estimates sparse speedups')
     parser.add_argument('--max-threads', type=int, default=10, help='How many threads to use for data loading.')
-    parser.add_argument('--train_reg', type=bool, default=False, help='Whether model should be trained regularly.')
+    parser.add_argument('--train_reg', action='store_true', help='Whether model should be trained regularly.')
     parser.add_argument('--train_adv', type=str, help='Which adversarial train method to use. Null '
                                                                   ' for no adversarial training.')
     parser.add_argument('--attack_adv', type=str,

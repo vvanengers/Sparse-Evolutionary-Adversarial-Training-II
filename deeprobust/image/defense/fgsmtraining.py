@@ -56,7 +56,7 @@ class FGSMtraining(BaseDefense):
 
             print(epoch, flush = True)
             self.train(self.device, train_loader, optimizer, epoch)
-            self.test(self.model, self.device, test_loader)
+            # self.test(self.model, self.device, test_loader)
 
             if (self.save_model):
                 if os.path.isdir('./' + self.save_dir):
@@ -176,7 +176,7 @@ class FGSMtraining(BaseDefense):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             # print adversarial accuracy
-            data_adv, output_adv = self.adv_data(data, target, ep = self.epsilon)
+            data_adv, output_adv = self.adv_data(data, target, ep=self.epsilon)
 
             test_loss_adv += self.calculate_loss(output_adv, target, redmode = 'sum').item()  # sum up batch loss
             pred_adv = output_adv.argmax(dim = 1, keepdim = True)  # get the index of the max log-probability

@@ -55,6 +55,15 @@ defense_params = {
         'lr' : 0.01
     },
 
+    "PGDtraining_cifar10":{
+        'save_dir': "./defense_model",
+        'save_model': True,
+        'save_name' : "mnist_pgdtraining_0.3.pt",
+        'epsilon' : 0.3,
+        'epoch_num' : 50,
+        'lr' : 0.01
+    },
+
     "FGSMtraining_MNIST":{
         'save_dir': "./defense_model",
         'save_model': True,
