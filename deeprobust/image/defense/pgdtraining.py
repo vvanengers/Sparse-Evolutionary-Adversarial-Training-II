@@ -59,7 +59,7 @@ class PGDtraining(BaseDefense):
         for epoch in range(1, self.epoch + 1):
             print('Training epoch: ', epoch, flush = True)
             self.train(self.device, train_loader, optimizer, epoch)
-            self.test(self.model, self.device, test_loader)
+            # self.test(self.model, self.device, test_loader)
 
             if (self.save_model and epoch % self.save_per_epoch == 0):
                 if os.path.isdir(str(self.save_dir)):
