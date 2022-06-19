@@ -283,7 +283,7 @@ def main():
         elif args.data == 'cifar100':
             train_loader, valid_loader, test_loader = get_cifar100_dataloaders(args, args.valid_split, max_threads=args.max_threads)
         elif args.data =='tiny_imagenet':
-            train_loader, valid_load, test_loader = get_tinyimagenet_dataloaders(args, args.valid_split, max_threads=args.max_threads)
+            train_loader, valid_load, test_loader = get_tinyimagenet_dataloaders(args, args.valid_split)
         if args.model not in models:
             print('You need to select an existing model via the --model argument. Available models include: ')
             for key in models:
