@@ -21,7 +21,8 @@ from deeprobust.image import defense as Defense
 import sparselearning
 
 from sparselearning.core import Masking, CosineDecay, LinearDecay
-from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, ResNet18
+from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, \
+    ResNet18, ResNet50
 from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders, \
     get_tinyimagenet_dataloaders
 import torchvision
@@ -42,6 +43,7 @@ models = {
     'MLPCIFAR10': (MLP_CIFAR10, []),
     'lenet5': (LeNet_5_Caffe, []),
     'lenet300-100': (LeNet_300_100, []),
+    'ResNet50': (()),
     'ResNet34': (()),
     'ResNet18': (()),
     'alexnet-s': (AlexNet, ['s', 10]),
@@ -275,24 +277,29 @@ def main():
     torch.manual_seed(args.seed)
     for i in range(args.iters):
         print_and_log("\nIteration start: {0}/{1}\n".format(i+1, args.iters))
-
         if args.data == 'mnist':
             train_loader, valid_loader, test_loader = get_mnist_dataloaders(args, validation_split=args.valid_split)
         elif args.data == 'cifar10':
+            c = 100
+            stride = 4
             train_loader, valid_loader, test_loader = get_cifar10_dataloaders(args, args.valid_split, max_threads=args.max_threads)
         elif args.data == 'cifar100':
             train_loader, valid_loader, test_loader = get_cifar100_dataloaders(args, args.valid_split, max_threads=args.max_threads)
         elif args.data =='tiny_imagenet':
             train_loader, valid_load, test_loader = get_tinyimagenet_dataloaders(args, args.valid_split)
+            c = 200
+            stride = 28
         if args.model not in models:
             print('You need to select an existing model via the --model argument. Available models include: ')
             for key in models:
                 print('\t{0}'.format(key))
             raise Exception('You need to select a model')
         elif args.model == 'ResNet18':
-            model = ResNet18(c=100).to(device)
+            model = ResNet18(c=c).to(device)
         elif args.model == 'ResNet34':
-            model = ResNet34(c=100).to(device)
+            model = ResNet34(c=c, stride=stride).to(device)
+        elif args.model == 'ResNet50':
+            model = ResNet50(c=c).to(device)
         else:
             cls, cls_args = models[args.model]
             model = cls(*(cls_args + [args.save_features, args.bench])).to(device)
