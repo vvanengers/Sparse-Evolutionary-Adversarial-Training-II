@@ -280,11 +280,13 @@ def main():
         if args.data == 'mnist':
             train_loader, valid_loader, test_loader = get_mnist_dataloaders(args, validation_split=args.valid_split)
         elif args.data == 'cifar10':
-            c = 100
+            c = 10
             stride = 4
             train_loader, valid_loader, test_loader = get_cifar10_dataloaders(args, args.valid_split, max_threads=args.max_threads)
         elif args.data == 'cifar100':
             train_loader, valid_loader, test_loader = get_cifar100_dataloaders(args, args.valid_split, max_threads=args.max_threads)
+            c = 100
+            stride = 4
         elif args.data =='tiny_imagenet':
             train_loader, valid_loader, test_loader = get_tinyimagenet_dataloaders(args, args.valid_split)
             c = 200
