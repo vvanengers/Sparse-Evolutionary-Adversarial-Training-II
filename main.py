@@ -23,7 +23,7 @@ import sparselearning
 from sparselearning.core import Masking, CosineDecay, LinearDecay
 from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, ResNet18
 from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders, \
-    plot_class_feature_histograms
+    get_tinyimagenet_dataloaders
 import torchvision
 from torchvision import transforms,datasets
 import torchvision.transforms as transforms
@@ -282,6 +282,8 @@ def main():
             train_loader, valid_loader, test_loader = get_cifar10_dataloaders(args, args.valid_split, max_threads=args.max_threads)
         elif args.data == 'cifar100':
             train_loader, valid_loader, test_loader = get_cifar100_dataloaders(args, args.valid_split, max_threads=args.max_threads)
+        elif args.data =='tiny_imagenet':
+            train_loader, valid_load, test_loader = get_tinyimagenet_dataloaders(args, args.valid_split, max_threads=args.max_threads)
         if args.model not in models:
             print('You need to select an existing model via the --model argument. Available models include: ')
             for key in models:

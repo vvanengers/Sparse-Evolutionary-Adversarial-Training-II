@@ -60,7 +60,7 @@ defense_params = {
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
         'epsilon' : 0.3,
-        'epoch_num' : 50,
+        'epoch_num' : 30,
         'lr' : 0.01
     },
 

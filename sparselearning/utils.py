@@ -121,9 +121,11 @@ def get_cifar10_dataloaders(args, validation_split=0.0, max_threads=10):
 
     return train_loader, valid_loader, test_loader
 
-def get_tinyimagenet_dataloaders(args, validation_split=0.0):
-    traindir = os.path.join(args.datadir, 'train')
-    valdir = os.path.join(args.datadir, 'val')
+def get_tinyimagenet_dataloaders(args, validation_split=0.0, max_threads=10):
+    path = '_dataset/tiny-imagenet-200'
+    traindir = f'{path}/train/'
+    valdir = f'{path}/val/'
+    testdir = f'{path}/test/'
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
@@ -136,25 +138,31 @@ def get_tinyimagenet_dataloaders(args, validation_split=0.0):
             normalize,
         ]))
 
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
-
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+        train_dataset, batch_size=args.batch_size, shuffle=True, pin_memory=True)
+    #
+    # val_loader = torch.utils.data.DataLoader(
+    #     datasets.ImageFolder(valdir, transforms.Compose([
+    #         transforms.Resize(256),
+    #         transforms.CenterCrop(224),
+    #         transforms.ToTensor(),
+    #         normalize,
+    #     ])),
+    #     batch_size=args.batch_size, shuffle=False,
+    #     num_workers=args.workers, pin_memory=True)
 
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
+    test_loader = torch.utils.data.DataLoader(
+        datasets.ImageFolder(testdir, transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             normalize,
         ])),
         batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
-    return train_loader, val_loader
+        pin_memory=True)
+
+    return train_loader, None, test_loader
+
 
 def get_mnist_dataloaders(args, validation_split=0.0):
     """Creates augmented train, validation, and test data loaders."""
