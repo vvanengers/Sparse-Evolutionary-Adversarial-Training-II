@@ -172,14 +172,14 @@ def evaluate(args, model, device, test_loader, is_test_set=False):
         test_loss, correct, n, 100. * correct / float(n)))
     return correct / float(n)
 
-def adversarial_training(model, method_name, train_loader, test_loader):
+def adversarial_training(model, method_name, train_loader, test_loader, defence_config):
     print(f'Start adversarial training with training method: {method_name}.')
     method = defences[method_name]
     model = method(model, 'cuda')
-    model = model.generate(train_loader, test_loader, **defense_params['PGDtraining_cifar10'])
+    model = model.generate(train_loader, test_loader, **defense_params[defence_config])
     return model
 
-def adversarial_attack(model, method_name, test_loader):
+def adversarial_attack(model, method_name, test_loader, attack_config):
     print(f'Start adversarial attack with attack method: {method_name}.')
     total = 0
     correct_orig = 0
@@ -194,7 +194,7 @@ def adversarial_attack(model, method_name, test_loader):
         predict0 = predict0.argmax(dim=1, keepdim=True)
 
         adversary = method(model)
-        AdvExArray = adversary.generate(data, target, **attack_params['PGD_CIFAR10']).float()
+        AdvExArray = adversary.generate(data, target, **attack_params[attack_config]).float()
 
         predict1 = model(AdvExArray)
         predict1 = predict1.argmax(dim=1, keepdim=True)
@@ -391,11 +391,13 @@ def main():
                 print('The final percentage of the total fired weights is:', total_fired_weights)
 
         if args.train_adv:
-            model = adversarial_training(model, args.train_adv, train_loader, test_loader)
+            defense_config = f'{args.train_adv}_{args.data}'
+            model = adversarial_training(model, args.train_adv, train_loader, test_loader, defense_config)
             torch.save(model.state_dict(), args.save_adv)
 
         if args.attack_adv:
-            adversarial_attack(model, args.attack_adv, test_loader)
+            attack_config = f'{args.attack_adv}_{args.data}'
+            adversarial_attack(model, args.attack_adv, test_loader, attack_config)
 
 
 if __name__ == '__main__':

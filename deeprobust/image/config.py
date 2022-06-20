@@ -15,7 +15,21 @@ attack_params = {
     'clip_min': None
     },
 
+    "FGSM_CIFAR100": {
+    'epsilon': 0.2,
+    'order': np.inf,
+    'clip_max': None,
+    'clip_min': None
+    },
+
     "PGD_CIFAR10": {
+    'epsilon': 0.1,
+    'clip_max': 1.0,
+    'clip_min': 0.0,
+    'print_process': True
+    },
+
+    "PGD_CIFAR100": {
     'epsilon': 0.1,
     'clip_max': 1.0,
     'clip_min': 0.0,
@@ -46,7 +60,7 @@ attack_params = {
 #-----------defense(Adversarial training) config------------#
 
 defense_params = {
-    "PGDtraining_MNIST":{
+    "PGD_MNIST":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
@@ -55,7 +69,7 @@ defense_params = {
         'lr' : 0.01
     },
 
-    "PGDtraining_cifar10":{
+    "PGD_cifar10":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
@@ -64,7 +78,16 @@ defense_params = {
         'lr' : 0.01
     },
 
-    "FGSMtraining_MNIST":{
+    "PGD_cifar100":{
+        'save_dir': "./defense_model",
+        'save_model': True,
+        'save_name' : "mnist_pgdtraining_0.3.pt",
+        'epsilon' : 0.3,
+        'epoch_num' : 30,
+        'lr' : 0.01
+    },
+
+    "FGSM_MNIST":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
@@ -73,7 +96,15 @@ defense_params = {
         'lr_train' : 0.001
     },
 
-    "FGSMtraining_CIFAR10":{
+    "FGSM_CIFAR10":{
+        'save_dir': "./defense_model",
+        'save_model': True,
+        'save_name' : "mnist_fgsmtraining_0.2.pt",
+        'epsilon' : 0.2,
+        'epoch_num' : 50,
+        'lr_train' : 0.001
+    },
+    "FGSM_CIFAR100":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
