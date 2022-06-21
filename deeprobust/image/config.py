@@ -22,13 +22,6 @@ attack_params = {
     'clip_min': None
     },
 
-    "FGSM_CIFAR100": {
-    'epsilon': 0.2,
-    'order': np.inf,
-    'clip_max': None,
-    'clip_min': None
-    },
-
     "PGD_CIFAR10": {
     'epsilon': 0.1,
     'clip_max': 1.0,
