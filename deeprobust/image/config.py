@@ -83,7 +83,7 @@ defense_params = {
         'lr' : 0.01
     },
 
-    "PGD_cifar10":{
+    "PGD_CIFAR10":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
@@ -92,7 +92,7 @@ defense_params = {
         'lr' : 0.01
     },
 
-    "PGD_cifar100":{
+    "PGD_CIFAR100":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
