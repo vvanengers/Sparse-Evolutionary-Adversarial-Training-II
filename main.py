@@ -332,11 +332,15 @@ def main():
             if os.path.isfile(args.resume):
                 print_and_log("=> loading checkpoint '{}'".format(args.resume))
                 checkpoint = torch.load(args.resume)
-                args.start_epoch = checkpoint['epoch']
                 model.load_state_dict(checkpoint['state_dict'])
-                optimizer.load_state_dict(checkpoint['optimizer'])
-                print_and_log("=> loaded checkpoint '{}' (epoch {})"
-                      .format(args.resume, checkpoint['epoch']))
+                if args.train_reg:
+                    args.start_epoch = checkpoint['epoch']
+                    optimizer.load_state_dict(checkpoint['optimizer'])
+                    print_and_log("=> loaded checkpoint '{}' (epoch {})"
+                                  .format(args.resume, checkpoint['epoch']))
+                else:
+                    print_and_log("=> loaded checkpoint '{}'"
+                                  .format(args.resume))
                 print_and_log('Testing...')
                 evaluate(args, model, device, test_loader)
                 model.feats = []
