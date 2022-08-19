@@ -37,10 +37,10 @@ attack_params = {
     },
 
     "PGD_CIFAR100": {
-    'epsilon': 0.1,
+    'epsilon': 0.2,
     'clip_max': 1.0,
     'clip_min': 0.0,
-    'print_process': True
+    'print_process': False
     },
 
     "PGD_tiny_imagenet": {
@@ -67,6 +67,10 @@ attack_params = {
     'binary_search_steps': 5,
     'learning_rate': 5e-3,
     'abort_early': True,
+    },
+
+    "DeepFool_CIFAR10": {
+
     }
 
 }
@@ -96,8 +100,8 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : 0.3,
-        'epoch_num' : 30,
+        'epsilon' : 0.5,
+        'epoch_num' : 50,
         'lr' : 0.01
     },
 
