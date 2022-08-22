@@ -33,6 +33,9 @@ import numpy as np
 import warnings
 import csv
 
+from sklearn import metrics
+
+
 
 warnings.filterwarnings("ignore", category=UserWarning)
 cudnn.benchmark = True
@@ -194,6 +197,12 @@ def adversarial_attack(args, model, method_name, test_loader, attack_config):
     total = 0
     correct_orig = 0
     correct_adv = 0
+    recall_orig = 0
+    precision_orig =0
+    recall_adv = 0
+    precision_adv = 0
+    f1_orig = 0
+    f1_adv = 0
     method = attacks[method_name]
     for batch_num, (data, target) in enumerate(test_loader):
         print(f'Adversarial attack batch {batch_num}/{len(test_loader)}')
@@ -214,11 +223,21 @@ def adversarial_attack(args, model, method_name, test_loader, attack_config):
         pred_adv = np.array(predict1.cpu()).flatten()
         correct_orig += np.sum(labels == pred_orig)
         correct_adv += np.sum(labels == pred_adv)
+
+        recall_orig += metrics.recall_score(labels, pred_orig, average='micro')
+        recall_adv += metrics.recall_score(labels, pred_adv, average='micro')
+
+        precision_orig += metrics.precision_score(labels, pred_orig, average='micro')
+        precision_adv += metrics.precision_score(labels, pred_adv, average='micro')
+
+        f1_orig += metrics.f1_score(labels, pred_orig, average='micro')
+        f1_adv += metrics.f1_score(labels, pred_adv, average='micro')
     print('=== Results ===')
     print(f'Total: {total}')
     print(f'Original predictions: {correct_orig}/{total} ({100 * correct_orig / total}%)')
     print(f'Adversarial predictions: {correct_adv}/{total} ({100 * correct_adv / total}%)')
-    row_to_file(args, [f'{100 * correct_orig / total}%',f'{100 * correct_adv / total}%'])
+    f = lambda x: np.mean(x) / batch_num
+    row_to_file(args, [f'{100 * correct_orig / total}%',f'{100 * correct_adv / total}%', f(recall_orig), f(recall_adv), f(pred_orig), f(pred_adv), f(f1_orig), f(f1_adv)])
 
 
 
@@ -415,6 +434,7 @@ def main():
             mask.add_module(model, sparse_init=args.sparse_init, density=args.density)
 
         best_acc = 0.0
+        epoch = 0
         print(f'Train: {args.train_reg}')
         if args.train_reg:
             print(f'Start epoch: {args.start_epoch}')
