@@ -113,6 +113,7 @@ def print_and_log(msg):
 
 
 def save(epoch, state_dict, optimizer, location):
+    print(f'save in {location}')
     torch.save({
         'epoch': epoch,
         'state_dict': state_dict,
@@ -473,7 +474,7 @@ def main():
         if args.train_adv:
             defense_config = f'{args.train_adv}_{args.data}'
             model = adversarial_training(model, args.train_adv, train_loader, test_loader, defense_config)
-            save(epoch, model.state_dict(), optimizer, args.save)
+            save(epoch, model.state_dict(), optimizer, args.save_adv)
 
         if args.print_model_size:
             print_and_log(np.sum([np.count_nonzero(p.cpu().
