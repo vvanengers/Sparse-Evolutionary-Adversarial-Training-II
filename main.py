@@ -243,7 +243,7 @@ def adversarial_attack(args, model, method_name, test_loader, attack_config):
 
 
 def row_to_file(args, values):
-    values = [args.batch_size, args.epochs, args.momentum, args.lr, args.save, args.save_adv, args.data, args.resume,
+    values = [args.identifier, args.batch_size, args.epochs, args.momentum, args.lr, args.save, args.save_adv, args.data, args.resume,
               args.model, args.train_reg, args.train_adv, args.adv_attack, args.sparse, args.growth, args.death,
               args.death_rate] \
              + values
@@ -316,6 +316,8 @@ def main():
     parser.add_argument('--visualise', action='store_true',
                         help='Whether to visualise the model.')
     parser.add_argument('--result_file', type=str, default='results.csv')
+
+    parser.add_argument('--identifier', type=str, help='Used to identify run')
     # ITOP settings
     sparselearning.core.add_sparse_args(parser)
 
