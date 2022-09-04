@@ -4,6 +4,7 @@ Created on Thu Oct 21 11:09:09 2017
 @author: Utku Ozbulak - github.com/utkuozbulak
 """
 import os
+import re
 import copy
 import numpy as np
 from PIL import Image
@@ -303,12 +304,15 @@ def get_adversarial_params(example_index):
                     ('../input_images/CIFAR10_23.png', 6),
                     ('../input_images/CIFAR10_230.png', 7))
     # Model path
-    path = "models/resnet_rigl_CIFAR10_adv_FGSM.pt"
+    path = "models/resnet_fc_CIFAR10_adv_FGSM.pt"
 
     img_path = example_list[example_index][0]
     target_class = example_list[example_index][1]
-    file_name_to_export = 'cnn_visualization/' + path[path.rfind('/') + 1:path.rfind('.')]
+    # file_name_to_export = path[path.rfind('_') + 1:path[path.rfind('_') + 1: path.rfind('.')].rfind('_')]
+    method = re.findall('_adv_(PGD|FGSM)', path)[0] if len(re.findall('_adv_(PGD|FGSM)', path)) > 0 else ""
+    file_name_to_export = re.findall('_(rigl|set|fc)_', path)[0] + '_' + method + re.findall('_\d+', img_path)[0]
     # Read image
+    # file_name_to_export = file_name_to_export + '_' + img_path[img_path.rfind('_') + 1: path.rfind('.')]
     original_image = Image.open(img_path).convert('RGB')
     # Process image
     prep_img = preprocess_image(original_image, resize_im=False)

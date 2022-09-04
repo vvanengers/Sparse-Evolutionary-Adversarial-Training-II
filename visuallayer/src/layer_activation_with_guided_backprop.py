@@ -59,9 +59,16 @@ class GuidedBackprop():
 
         # Loop through layers, hook up ReLUs
         for pos, module in self.model.named_children(): #self.model.features._modules.items()
-            if isinstance(module, ReLU):
+            if isinstance(module, torch.nn.Sequential):
+                for layer in module:
+                    if isinstance(module, ReLU):
+                        module.register_backward_hook(relu_backward_hook_function)
+                        module.register_forward_hook(relu_forward_hook_function)
+            elif(isinstance(module, ReLU)):
                 module.register_backward_hook(relu_backward_hook_function)
                 module.register_forward_hook(relu_forward_hook_function)
+            # if pos == 'classifier':
+
 
     def generate_gradients(self, input_image, target_class, cnn_layer, filter_pos):
         self.model.zero_grad()
@@ -86,14 +93,14 @@ class GuidedBackprop():
 
 
 if __name__ == '__main__':
-    cnn_layer = 'layer4'
+    cnn_layer = 'conv1'
     filter_pos = 5
-    target_example = 1  # Spider
+    target_example = 0  # Truck
     (original_image, prep_img, target_class, file_name_to_export, pretrained_model) =\
         get_adversarial_params(target_example)
 
     # File export name
-    file_name_to_export = file_name_to_export + '_layer' + str(cnn_layer) + '_filter' + str(filter_pos)
+    file_name_to_export = '../results/layer_activation/' + file_name_to_export + '_layer' + str(cnn_layer) + '_filter' + str(filter_pos)
     # Guided backprop
     GBP = GuidedBackprop(pretrained_model)
     # Get gradients

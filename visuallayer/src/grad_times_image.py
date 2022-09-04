@@ -5,7 +5,7 @@ Created on Wed Jun 19 17:12:04 2019
 """
 from misc_functions import (get_example_params,
                             convert_to_grayscale,
-                            save_gradient_images)
+                            save_gradient_images, get_adversarial_params)
 from vanilla_backprop import VanillaBackprop
 # from guided_backprop import GuidedBackprop  # To use with guided backprop
 # from integrated_gradients import IntegratedGradients  # To use with integrated grads
@@ -14,7 +14,9 @@ if __name__ == '__main__':
     # Get params
     target_example = 0  # Snake
     (original_image, prep_img, target_class, file_name_to_export, pretrained_model) =\
-        get_example_params(target_example)
+        get_adversarial_params(target_example)
+
+    file_name_to_export = '../results/GradTimesImage/' + file_name_to_export
     # Vanilla backprop
     VBP = VanillaBackprop(pretrained_model)
     # Generate gradients

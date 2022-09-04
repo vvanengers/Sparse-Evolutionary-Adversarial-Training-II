@@ -46,7 +46,7 @@ class CNNLayerVisualization():
         processed_image = preprocess_image(random_image, False)
         # Define optimizer for the image
         optimizer = Adam([processed_image], lr=0.1, weight_decay=1e-6)
-        for i in range(1, 31):
+        for i in range(1, 2001):
             optimizer.zero_grad()
             # Assign create image to a variable to move forward in the model
             x = processed_image
@@ -70,8 +70,8 @@ class CNNLayerVisualization():
             # Recreate image
             self.created_image = recreate_image(processed_image)
             # Save image
-            if i % 5 == 0:
-                im_path = '../generated/layer_vis_l' + str(self.selected_layer) + \
+            if i % 200 == 0:
+                im_path = '../results/cnnlayerviz/' + str(self.selected_layer) + \
                     '_f' + str(self.selected_filter) + '_iter' + str(i) + '_h' +  '.jpg'
                 save_image(self.created_image, im_path)
 
@@ -83,7 +83,7 @@ class CNNLayerVisualization():
         processed_image = preprocess_image(random_image, False)
         # Define optimizer for the image
         optimizer = Adam([processed_image], lr=0.1, weight_decay=1e-6)
-        for i in range(1, 200):
+        for i in range(1, 2001):
             optimizer.zero_grad()
             # Assign create image to a variable to move forward in the model
             x = processed_image
@@ -111,19 +111,19 @@ class CNNLayerVisualization():
             # Recreate image
             self.created_image = recreate_image(processed_image)
             # Save image
-            if i % 50 == 0:
-                im_path = '../generated/layer_vis_l' + str(self.selected_layer) + \
-                    '_f' + str(self.selected_filter) + '_iter' + str(i) + '_wh_fc' + '.jpg'
+            if i % 200  == 0:
+                im_path = '../results/cnnlayerviz/' + str(self.selected_layer) + \
+                    '_f' + str(self.selected_filter) + '_iter' + str(i) + '_wh' + '.jpg'
                 save_image(self.created_image, im_path)
 
 
 if __name__ == '__main__':
     cnn_layer = 'layer4'
-    filter_pos = 5
+    filter_pos = 10
     # Fully connected layer is not needed
     # pretrained_model = models.vgg16(pretrained=True).features
 
-    path = "models/resnet_fc_CIFAR10_adv_FGSM.pt"
+    path = "models/resnet_rigl_CIFAR10.pt"
     model = ResNet34()  # c=10
     model.load_state_dict(torch.load(path)['state_dict'])
     # model.eval()
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     layer_vis = CNNLayerVisualization(pretrained_model, cnn_layer, filter_pos)
 
     # Layer visualization with pytorch hooks
-    # layer_vis.visualise_layer_with_hooks()
+    layer_vis.visualise_layer_with_hooks()
 
     # Layer visualization without pytorch hooks
-    layer_vis.visualise_layer_without_hooks()
+    # layer_vis.visualise_layer_without_hooks()
