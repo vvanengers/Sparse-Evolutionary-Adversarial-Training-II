@@ -74,15 +74,31 @@ class GuidedBackprop():
         self.model.zero_grad()
         # Forward pass
         x = input_image
-        for index, layer in self.model.named_children():  # enumerate(self.model.features)
-            # Forward pass layer by layer
-            # x is not used after this point because it is only needed to trigger
-            # the forward hook function
-            x = layer(x)
-            # Only need to forward until the selected layer is reached
-            if index == cnn_layer:
-                # (forward hook function triggered)
-                break
+        for index, block in self.model.named_children():  # enumerate(self.model.features)
+            if isinstance(block, torch.nn.Sequential):
+                # for basicblock in [i for i in block]:
+                    # TRY HERE TO IMPLEMENT LOOP THROGH THE BASICBLOCK
+
+                # for index_s, basicblock in block:
+                # Forward pass layer by layer
+                # x is not used after this point because it is only needed to trigger
+                # the forward hook function
+                x = block(x)
+                # Only need to forward until the selected layer is reached
+                if index == cnn_layer:
+                    # (forward hook function triggered)
+                    break
+            else:
+                # Forward pass layer by layer
+                # x is not used after this point because it is only needed to trigger
+                # the forward hook function
+                x = block(x)
+                # Only need to forward until the selected layer is reached
+                if index == cnn_layer:
+                    # (forward hook function triggered)
+                    break
+
+
         conv_output = torch.sum(torch.abs(x[0, filter_pos]))
         # Backward pass
         conv_output.backward()
@@ -93,7 +109,7 @@ class GuidedBackprop():
 
 
 if __name__ == '__main__':
-    cnn_layer = 'conv1'
+    cnn_layer = 'conv6'
     filter_pos = 5
     target_example = 0  # Truck
     (original_image, prep_img, target_class, file_name_to_export, pretrained_model) =\

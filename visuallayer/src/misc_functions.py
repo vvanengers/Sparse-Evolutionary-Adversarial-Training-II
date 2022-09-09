@@ -304,7 +304,7 @@ def get_adversarial_params(example_index):
                     ('../input_images/CIFAR10_23.png', 6),
                     ('../input_images/CIFAR10_230.png', 7))
     # Model path
-    path = "models/resnet_fc_CIFAR10_adv_FGSM.pt"
+    path = "models/resnet_fc_CIFAR10_adv_PGD.pt"
 
     img_path = example_list[example_index][0]
     target_class = example_list[example_index][1]
