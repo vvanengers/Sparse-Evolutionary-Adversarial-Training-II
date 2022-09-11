@@ -29,7 +29,8 @@ class GuidedBackprop():
         def hook_function(module, grad_in, grad_out):
             self.gradients = grad_in[0]
         # Register hook to the first layer
-        first_layer = list(self.model.features._modules.items())[0][1]
+        # first_layer = list(self.model.features._modules.items())[0][1]
+        first_layer = self.model.layer1[0].conv2
         first_layer.register_backward_hook(hook_function)
 
     def update_relus(self):
@@ -56,7 +57,7 @@ class GuidedBackprop():
             self.forward_relu_outputs.append(ten_out)
 
         # Loop through layers, hook up ReLUs
-        for pos, module in self.model.features._modules.items():
+        for pos, module in self.model.named_children():  #self.model.features._modules.items():
             if isinstance(module, ReLU):
                 module.register_backward_hook(relu_backward_hook_function)
                 module.register_forward_hook(relu_forward_hook_function)
@@ -78,7 +79,7 @@ class GuidedBackprop():
 
 
 if __name__ == '__main__':
-    target_example = 0  # Snake
+    target_example = 1  # Snake
     (original_image, prep_img, target_class, file_name_to_export, pretrained_model) =\
         get_adversarial_params(target_example)
 
@@ -91,9 +92,9 @@ if __name__ == '__main__':
     # Convert to grayscale
     grayscale_guided_grads = convert_to_grayscale(guided_grads)
     # Save grayscale gradients
-    save_gradient_images(grayscale_guided_grads, file_name_to_export + '_Guided_BP_gray')
+    save_gradient_images(grayscale_guided_grads, '../results/guidedbp/' + file_name_to_export + '_Guided_BP_gray')
     # Positive and negative saliency maps
     pos_sal, neg_sal = get_positive_negative_saliency(guided_grads)
-    save_gradient_images(pos_sal, file_name_to_export + '_pos_sal')
-    save_gradient_images(neg_sal, file_name_to_export + '_neg_sal')
+    save_gradient_images(pos_sal, '../results/guidedbp/' + file_name_to_export + '_pos_sal')
+    save_gradient_images(neg_sal, '../results/guidedbp/' + file_name_to_export + '_neg_sal')
     print('Guided backprop completed')

@@ -7,7 +7,7 @@ from PIL import Image
 import numpy as np
 import torch
 
-from misc_functions import get_example_params, save_class_activation_images
+from misc_functions import get_example_params, save_class_activation_images, get_adversarial_params
 
 
 class CamExtractor():
@@ -27,10 +27,12 @@ class CamExtractor():
             Does a forward pass on convolutions, hooks the function at given layer
         """
         conv_output = None
-        for module_pos, module in self.model.features._modules.items():
-            x = module(x)  # Forward
-            if int(module_pos) == self.target_layer:
-                x.register_hook(self.save_gradient)
+        for module_pos, module in self.model.named_children(): #  self.model.features._modules.items():
+            # Only forward the 'features' of the model not classifier
+            if module_pos != 'classifier':
+                x = module(x)  # Forward
+            if module_pos == self.target_layer:
+                x.register_hook(lambda grad: self.save_gradient(grad))
                 conv_output = x  # Save the convolution output on that layer
         return conv_output, x
 
@@ -40,6 +42,7 @@ class CamExtractor():
         """
         # Forward pass on the convolutions
         conv_output, x = self.forward_pass_on_convolutions(x)
+        x = torch.nn.functional.avg_pool2d(x, self.model.stride)
         x = x.view(x.size(0), -1)  # Flatten
         # Forward pass on the classifier
         x = self.model.classifier(x)
@@ -67,12 +70,14 @@ class GradCam():
         one_hot_output = torch.FloatTensor(1, model_output.size()[-1]).zero_()
         one_hot_output[0][target_class] = 1
         # Zero grads
-        self.model.features.zero_grad()
+        self.model.zero_grad() #  features
         self.model.classifier.zero_grad()
         # Backward pass with specified target
         model_output.backward(gradient=one_hot_output, retain_graph=True)
         # Get hooked gradients
         guided_gradients = self.extractor.gradients.data.numpy()[0]
+        # guided_gradients = self.model.gradients.data.numpy()[0]
+        # self.extractor.save_gradient(guided_gradients)
         # Get convolution outputs
         target = conv_output.data.numpy()[0]
         # Get weights from gradients
@@ -103,13 +108,14 @@ class GradCam():
 
 if __name__ == '__main__':
     # Get params
-    target_example = 0  # Snake
+    target_example = 1 # Truck
     (original_image, prep_img, target_class, file_name_to_export, pretrained_model) =\
-        get_example_params(target_example)
+        get_adversarial_params(target_example)
     # Grad cam
-    grad_cam = GradCam(pretrained_model, target_layer=11)
+    grad_cam = GradCam(pretrained_model, target_layer='conv1')
     # Generate cam mask
     cam = grad_cam.generate_cam(prep_img, target_class)
     # Save mask
+    file_name_to_export = '../results/GradCam/' + file_name_to_export
     save_class_activation_images(original_image, cam, file_name_to_export)
     print('Grad cam completed')
