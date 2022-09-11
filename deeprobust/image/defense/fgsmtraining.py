@@ -35,7 +35,7 @@ class FGSMtraining(BaseDefense):
 
         self.model = model
 
-    def generate(self, train_loader, test_loader, **kwargs):
+    def generate(self, train_loader, test_loader, evaluation_pack, **kwargs):
         """FGSM adversarial training process.
 
         Parameters
@@ -53,10 +53,14 @@ class FGSMtraining(BaseDefense):
         optimizer = optim.Adam(self.model.parameters(), self.lr_train)
 
         for epoch in range(1, self.epoch_num + 1):
-
-            print(epoch, flush = True)
-            self.train(self.device, train_loader, optimizer, epoch)
+            print(epoch, flush=True)
+            train_accuracy, train_loss = self.train(self.device, train_loader, optimizer, epoch)
             # self.test(self.model, self.device, test_loader)
+
+            if epoch % evaluation_pack['args'].track_interval == 0:
+                print(f'tracking at epoch {epoch} in FGSM training')
+                evaluation_pack['track'](evaluation_pack['tracker'], self.device, evaluation_pack['args'], epoch, train_accuracy,
+                                      train_loss, self.model, evaluation_pack['valid_loader'])
 
             if (self.save_model):
                 if os.path.isdir('./' + self.save_dir):
@@ -120,7 +124,10 @@ class FGSMtraining(BaseDefense):
             training epoch
         """
         self.model.train()
+        n = 0
         correct = 0
+        correct_total = 0
+        train_loss = 0
         bs = train_loader.batch_size
 
         for batch_idx, (data, target) in enumerate(train_loader):
@@ -128,16 +135,19 @@ class FGSMtraining(BaseDefense):
             optimizer.zero_grad()
 
             data, target = data.to(device), target.to(device)
-
-            data_adv, output = self.adv_data(data, target, ep = self.epsilon)
+            epsilon = self.epsilon()
+            data_adv, output = self.adv_data(data, target, ep = epsilon)
 
             loss = self.calculate_loss(output, target)
+            train_loss += loss.item()
 
             loss.backward()
             optimizer.step()
 
             pred = output.argmax(dim = 1, keepdim = True)
             correct += pred.eq(target.view_as(pred)).sum().item()
+            correct_total += correct
+            n += target.shape[0]
 
             #print every 10
             if batch_idx % 10 == 0:
@@ -145,6 +155,8 @@ class FGSMtraining(BaseDefense):
                     epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item(), 100 * correct/(10*bs)))
                 correct = 0
+        train_accuracy = correct_total / float(n)
+        return train_accuracy, train_loss
 
 
     def test(self, model, device, test_loader):
@@ -176,7 +188,8 @@ class FGSMtraining(BaseDefense):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             # print adversarial accuracy
-            data_adv, output_adv = self.adv_data(data, target, ep=self.epsilon)
+            epsilon = self.epsilon()
+            data_adv, output_adv = self.adv_data(data, target, ep=epsilon)
 
             test_loss_adv += self.calculate_loss(output_adv, target, redmode = 'sum').item()  # sum up batch loss
             pred_adv = output_adv.argmax(dim = 1, keepdim = True)  # get the index of the max log-probability

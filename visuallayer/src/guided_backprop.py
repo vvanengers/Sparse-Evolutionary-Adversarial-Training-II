@@ -9,7 +9,7 @@ from torch.nn import ReLU
 from misc_functions import (get_example_params,
                             convert_to_grayscale,
                             save_gradient_images,
-                            get_positive_negative_saliency)
+                            get_positive_negative_saliency, get_adversarial_params)
 
 
 class GuidedBackprop():
@@ -80,7 +80,7 @@ class GuidedBackprop():
 if __name__ == '__main__':
     target_example = 0  # Snake
     (original_image, prep_img, target_class, file_name_to_export, pretrained_model) =\
-        get_example_params(target_example)
+        get_adversarial_params(target_example)
 
     # Guided backprop
     GBP = GuidedBackprop(pretrained_model)

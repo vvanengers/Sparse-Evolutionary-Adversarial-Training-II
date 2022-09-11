@@ -3,6 +3,7 @@ Created on Sat Nov 18 23:12:08 2017
 
 @author: Utku Ozbulak - github.com/utkuozbulak
 """
+import argparse
 import os
 import numpy as np
 
@@ -75,7 +76,7 @@ class CNNLayerVisualization():
                     '_f' + str(self.selected_filter) + '_iter' + str(i) + '_h' +  '.jpg'
                 save_image(self.created_image, im_path)
 
-    def visualise_layer_without_hooks(self):
+    def visualise_layer_without_hooks(self, model_name, adv):
         # Process image and return variable
         # Generate a random image
         random_image = np.uint8(np.random.uniform(150, 180, (224, 224, 3)))
@@ -111,28 +112,42 @@ class CNNLayerVisualization():
             # Recreate image
             self.created_image = recreate_image(processed_image)
             # Save image
-            if i % 50 == 0:
+            if i % 5 == 0:
                 im_path = '../generated/layer_vis_l' + str(self.selected_layer) + \
-                    '_f' + str(self.selected_filter) + '_iter' + str(i) + '_wh_fc' + '.jpg'
+                    '_f' + str(self.selected_filter) + '_iter' + str(i) + '_' + model_name + '_adv_' + adv + '.jpg'
                 save_image(self.created_image, im_path)
 
 
 if __name__ == '__main__':
-    cnn_layer = 'layer4'
-    filter_pos = 5
-    # Fully connected layer is not needed
-    # pretrained_model = models.vgg16(pretrained=True).features
+    parser = argparse.ArgumentParser(description='grad_step')
+    parser.add_argument('--model', type=str, help='model type')
+    parser.add_argument('--train_adv', type=str, help='robust training type')
+    args = parser.parse_args()
+    i = 0
+    for model_name in ['fc']:
+        for adv in ['FGSM', 'PGD']:
+            print(f'Doing {model_name} with {adv}')
+            # if i == 0:
+            #     i += 1
+            #     print('skip')
+            #     break
 
-    path = "models/resnet_fc_CIFAR10_adv_FGSM.pt"
-    model = ResNet34()  # c=10
-    model.load_state_dict(torch.load(path)['state_dict'])
-    # model.eval()
-    pretrained_model = model
+            cnn_layer = 'layer4'
+            filter_pos = 5
+            # Fully connected layer is not needed
+            # pretrained_model = models.vgg16(pretrained=True).features
 
-    layer_vis = CNNLayerVisualization(pretrained_model, cnn_layer, filter_pos)
+            # adv = args.train_adv
+            path = f"models/resnet_{model_name}_CIFAR10{'' if adv=='none' else '_adv_' + adv}.pt"
+            model = ResNet34()  # c=10
+            model.load_state_dict(torch.load(path, map_location=torch.device('cpu'))['state_dict'])
+            # model.eval()
+            pretrained_model = model
 
-    # Layer visualization with pytorch hooks
-    # layer_vis.visualise_layer_with_hooks()
+            layer_vis = CNNLayerVisualization(pretrained_model, cnn_layer, filter_pos)
 
-    # Layer visualization without pytorch hooks
-    layer_vis.visualise_layer_without_hooks()
+            # Layer visualization with pytorch hooks
+            # layer_vis.visualise_layer_with_hooks()
+
+            # Layer visualization without pytorch hooks
+            layer_vis.visualise_layer_without_hooks(model_name, adv)

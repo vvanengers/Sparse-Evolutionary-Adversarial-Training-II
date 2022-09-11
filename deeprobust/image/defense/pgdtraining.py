@@ -26,7 +26,6 @@ class PGDtraining(BaseDefense):
 
     """
 
-
     def __init__(self, model, device):
         if not torch.cuda.is_available():
             print('CUDA not availiable, using cpu...')
@@ -36,7 +35,7 @@ class PGDtraining(BaseDefense):
 
         self.model = model
 
-    def generate(self, train_loader, test_loader, **kwargs):
+    def generate(self, train_loader, test_loader, evaluation_pack, **kwargs):
         """Call this function to generate robust model.
 
         Parameters
@@ -49,42 +48,48 @@ class PGDtraining(BaseDefense):
             kwargs
         """
         self.parse_params(**kwargs)
-
         torch.manual_seed(100)
         device = torch.device(self.device)
-
         optimizer = optim.Adam(self.model.parameters(), self.lr)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 100], gamma = 0.1)
+
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 100], gamma=0.1)
         save_model = True
         for epoch in range(1, self.epoch + 1):
-            print('Training epoch: ', epoch, flush = True)
-            self.train(self.device, train_loader, optimizer, epoch)
+            print('Training epoch: ', epoch, flush=True)
+            train_accuracy, train_loss = self.train(device, train_loader, optimizer, epoch)
             # self.test(self.model, self.device, test_loader)
+            if epoch % evaluation_pack['args'].track_interval == 0:
+                print(f'tracking at epoch {epoch} in PGD training')
+                evaluation_pack['track'](evaluation_pack['tracker'], self.device, evaluation_pack['args'], epoch,
+                                         train_accuracy,
+                                         train_loss, self.model, evaluation_pack['valid_loader'])
 
             if (self.save_model and epoch % self.save_per_epoch == 0):
                 if os.path.isdir(str(self.save_dir)):
-                    torch.save(self.model.state_dict(), os.path.join(self.save_dir, self.save_name + '_epoch' + str(epoch) + '.pth'))
+                    torch.save(self.model.state_dict(),
+                               os.path.join(self.save_dir, self.save_name + '_epoch' + str(epoch) + '.pth'))
                     print("model saved in " + str(self.save_dir))
                 else:
                     print("make new directory and save model in " + str(self.save_dir))
                     os.mkdir('./' + str(self.save_dir))
-                    torch.save(self.model.state_dict(), os.path.join(self.save_dir, self.save_name + '_epoch' + str(epoch) + '.pth'))
+                    torch.save(self.model.state_dict(),
+                               os.path.join(self.save_dir, self.save_name + '_epoch' + str(epoch) + '.pth'))
 
             scheduler.step()
 
         return self.model
 
     def parse_params(self,
-                     epoch_num = 100,
-                     save_dir = "./defense_models",
-                     save_name = "mnist_pgdtraining_0.3",
-                     save_model = True,
-                     epsilon = 8.0 / 255.0,
-                     num_steps = 10,
-                     perturb_step_size = 0.01,
-                     lr = 0.1,
-                     momentum = 0.1,
-                     save_per_epoch = 10):
+                     epoch_num=100,
+                     save_dir="./defense_models",
+                     save_name="mnist_pgdtraining_0.3",
+                     save_model=True,
+                     epsilon=8.0 / 255.0,
+                     num_steps=10,
+                     perturb_step_size=0.01,
+                     lr=0.1,
+                     momentum=0.1,
+                     save_per_epoch=10):
         """Parameter parser.
 
         Parameters
@@ -136,31 +141,40 @@ class PGDtraining(BaseDefense):
         """
 
         self.model.train()
+        n = 0
         correct = 0
+        correct_total = 0
+        train_loss = 0
         bs = train_loader.batch_size
-        #scheduler = StepLR(optimizer, step_size = 10, gamma = 0.5)
+        # scheduler = StepLR(optimizer, step_size = 10, gamma = 0.5)
         for batch_idx, (data, target) in enumerate(train_loader):
 
             optimizer.zero_grad()
 
             data, target = data.to(device), target.to(device)
-
-            data_adv, output = self.adv_data(data, target, ep = self.epsilon, num_steps = self.num_steps, perturb_step_size = self.perturb_step_size)
+            epsilon = self.epsilon()
+            data_adv, output = self.adv_data(data, target, ep=epsilon, num_steps=self.num_steps,
+                                             perturb_step_size=self.perturb_step_size)
             loss = self.calculate_loss(output, target)
+
+            train_loss += loss.item()
 
             loss.backward()
             optimizer.step()
 
-            pred = output.argmax(dim = 1, keepdim = True)
+            pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
+            correct_total += correct
+            n += target.shape[0]
 
-            #print every 10
+            # print every 10
             if batch_idx % 20 == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tAccuracy:{:.2f}%'.format(
                     epoch, batch_idx * len(data), len(train_loader.dataset),
-                       100. * batch_idx / len(train_loader), loss.item(), 100 * correct/(bs)))
-            correct = 0
-
+                           100. * batch_idx / len(train_loader), loss.item(), 100 * correct / (bs)))
+                correct = 0
+        train_accuracy = correct_total / float(n)
+        return train_accuracy, train_loss
 
     def test(self, model, device, test_loader):
         """
@@ -187,14 +201,15 @@ class PGDtraining(BaseDefense):
             # print clean accuracy
             output = model(data)
             test_loss += F.cross_entropy(output, target, reduction='sum').item()  # sum up batch loss
-            pred = output.argmax(dim = 1, keepdim = True)  # get the index of the max log-probability
+            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             # print adversarial accuracy
-            data_adv, output_adv = self.adv_data(data, target, ep = self.epsilon, num_steps = self.num_steps)
+            epsilon = self.epsilon()
+            data_adv, output_adv = self.adv_data(data, target, ep=epsilon, num_steps=self.num_steps)
 
-            test_loss_adv += self.calculate_loss(output_adv, target, redmode = 'sum').item()  # sum up batch loss
-            pred_adv = output_adv.argmax(dim = 1, keepdim = True)  # get the index of the max log-probability
+            test_loss_adv += self.calculate_loss(output_adv, target, redmode='sum').item()  # sum up batch loss
+            pred_adv = output_adv.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct_adv += pred_adv.eq(target.view_as(pred_adv)).sum().item()
 
         test_loss /= len(test_loader.dataset)
@@ -208,22 +223,22 @@ class PGDtraining(BaseDefense):
             test_loss_adv, correct_adv, len(test_loader.dataset),
             100. * correct_adv / len(test_loader.dataset)))
 
-    def adv_data(self, data, output, ep = 0.3, num_steps = 10, perturb_step_size = 0.01):
+    def adv_data(self, data, output, ep=0.3, num_steps=10, perturb_step_size=0.01):
         """
         Generate input(adversarial) data for training.
         """
 
         adversary = PGD(self.model)
-        data_adv = adversary.generate(data, output.flatten(), epsilon = ep, num_steps = num_steps, step_size = perturb_step_size)
+        data_adv = adversary.generate(data, output.flatten(), epsilon=ep, num_steps=num_steps,
+                                      step_size=perturb_step_size)
         output = self.model(data_adv)
 
         return data_adv, output
 
-    def calculate_loss(self, output, target, redmode = 'mean'):
+    def calculate_loss(self, output, target, redmode='mean'):
         """
         Calculate loss for training.
         """
 
-        loss = F.cross_entropy(output, target, reduction = redmode)
+        loss = F.cross_entropy(output, target, reduction=redmode)
         return loss
-

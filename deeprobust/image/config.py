@@ -1,29 +1,32 @@
 import numpy as np
 # ---------------------attack config------------------------#
+
+epsilon = lambda: np.abs(np.random.normal(0,0.25,1))[0]
+
 attack_params = {
     "FGSM_MNIST": {
-    'epsilon': 0.2,
+    'epsilon' : epsilon,
     'order': np.inf,
     'clip_max': None,
     'clip_min': None
     },
 
     "FGSM_CIFAR10": {
-    'epsilon': 0.2,
+    'epsilon' : epsilon,
     'order': np.inf,
     'clip_max': None,
     'clip_min': None
     },
 
     "FGSM_CIFAR100": {
-    'epsilon': 0.2,
+    'epsilon' : epsilon,
     'order': np.inf,
     'clip_max': None,
     'clip_min': None
     },
 
     "FGSM_tiny_imagenet": {
-    'epsilon': 0.2,
+    'epsilon' : epsilon,
     'order': np.inf,
     'clip_max': None,
     'clip_min': None
@@ -37,21 +40,21 @@ attack_params = {
     },
 
     "PGD_CIFAR100": {
-    'epsilon': 0.2,
+    'epsilon' : epsilon,
     'clip_max': 1.0,
     'clip_min': 0.0,
     'print_process': False
     },
 
     "PGD_tiny_imagenet": {
-    'epsilon': 0.1,
+    'epsilon': epsilon,
     'clip_max': 1.0,
     'clip_min': 0.0,
     'print_process': True
     },
 
     "LBFGS_MNIST": {
-    'epsilon': 1e-4,
+    'epsilon': epsilon,
     'maxiter': 20,
     'clip_max': 1,
     'clip_min': 0,
@@ -82,8 +85,8 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : 0.3,
-        'epoch_num' : 80,
+        'epsilon' : epsilon,
+        'epoch_num' : 30,
         'lr' : 0.01
     },
 
@@ -91,7 +94,7 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : 0.3,
+        'epsilon' : epsilon,
         'epoch_num' : 30,
         'lr' : 0.01
     },
@@ -100,8 +103,8 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : 0.5,
-        'epoch_num' : 50,
+        'epsilon' : epsilon,
+        'epoch_num' : 30,
         'lr' : 0.01
     },
 
@@ -109,7 +112,7 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : 0.3,
+        'epsilon' : epsilon,
         'epoch_num' : 30,
         'lr' : 0.01
     },
@@ -118,8 +121,8 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
-        'epsilon' : 0.2,
-        'epoch_num' : 50,
+        'epsilon' : epsilon,
+        'epoch_num' : 30,
         'lr_train' : 0.001
     },
 
@@ -127,16 +130,16 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
-        'epsilon' : 0.2,
-        'epoch_num' : 50,
+        'epsilon' : epsilon,
+        'epoch_num' : 30,
         'lr_train' : 0.001
     },
     "FGSM_CIFAR100":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
-        'epsilon' : 0.2,
-        'epoch_num' : 50,
+        'epsilon' : epsilon,
+        'epoch_num' : 30,
         'lr_train' : 0.001
     },
 
@@ -144,8 +147,8 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
-        'epsilon' : 0.2,
-        'epoch_num' : 50,
+        'epsilon' : epsilon,
+        'epoch_num' : 30,
         'lr_train' : 0.001
     },
 
@@ -153,8 +156,8 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "fast_mnist_0.3.pt",
-        'epsilon' : 0.3,
-        'epoch_num' : 50,
+        'epsilon' : epsilon,
+        'epoch_num' : 30,
         'lr_train' : 0.001
     }
 }

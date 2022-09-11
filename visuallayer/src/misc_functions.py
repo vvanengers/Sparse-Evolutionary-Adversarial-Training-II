@@ -15,8 +15,8 @@ import torch
 from torch.autograd import Variable
 from torchvision import models
 
-from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, \
-    ResNet18, ResNet50
+from sparselearning.models import ResNet34
+
 
 # from deeprobust.image.netmodels.resnet import ResNet34
 def convert_to_grayscale(im_as_arr):
@@ -271,12 +271,15 @@ def get_example_params(example_index):
     # Process image
     prep_img = preprocess_image(original_image)
     # Define model
-    pretrained_model = models.alexnet(pretrained=True)
+    # pretrained_model = models.alexnet(pretrained=True)
+    model = ResNet34()  # c=10
+    path = "models/resnet_rigl_CIFAR10_adv_FGSM.pt"
+    model.load_state_dict(torch.load(path, map_location=torch.device('cpu'))['state_dict'])
     return (original_image,
             prep_img,
             target_class,
             file_name_to_export,
-            pretrained_model)
+            model)
 
 
 def get_adversarial_params(example_index):
@@ -316,7 +319,7 @@ def get_adversarial_params(example_index):
 
     # path = "models/resnet_fc_CIFAR10_adv_FGSM.pt"
     model = ResNet34()  # c=10
-    model.load_state_dict(torch.load(path)['state_dict'])
+    model.load_state_dict(torch.load(path, map_location=torch.device('cpu'))['state_dict'])
     # model.eval()
     pretrained_model = model
 

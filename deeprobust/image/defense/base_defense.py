@@ -19,7 +19,7 @@ class BaseDefense(object):
         """
         return True
 
-    def generate(self, train_loader, test_loader, **kwargs):
+    def generate(self, train_loader, test_loader, evaluation_pack, **kwargs):
         """generate.
 
         Parameters

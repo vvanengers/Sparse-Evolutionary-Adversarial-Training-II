@@ -17,6 +17,7 @@ import torch.backends.cudnn as cudnn
 
 import matplotlib.pyplot as plt
 
+from data_objects.inter_result_tracker import InterResultTracker
 from deeprobust.image.config import defense_params, attack_params
 from deeprobust.image import attack as Attack
 from deeprobust.image import defense as Defense
@@ -34,8 +35,6 @@ import warnings
 import csv
 
 from sklearn import metrics
-
-
 
 warnings.filterwarnings("ignore", category=UserWarning)
 cudnn.benchmark = True
@@ -159,6 +158,8 @@ def train(args, model, device, train_loader, optimizer, epoch, mask=None):
     print_and_log('\n{}: Average loss: {:.4f}, Accuracy: {}/{} ({:.3f}%)\n'.format(
         'Training summary',
         train_loss / batch_idx, correct, n, 100. * correct / float(n)))
+    train_accuracy = correct / float(n)
+    return train_loss, train_accuracy
 
 
 def evaluate(args, model, device, test_loader, is_test_set=False):
@@ -182,14 +183,15 @@ def evaluate(args, model, device, test_loader, is_test_set=False):
     print_and_log('\n{}: Average loss: {:.4f}, Accuracy: {}/{} ({:.3f}%)\n'.format(
         'Test evaluation' if is_test_set else 'Evaluation',
         test_loss, correct, n, 100. * correct / float(n)))
-    return correct / float(n)
+    print_and_log(f'float n: {float(n)}')
+    return correct / float(n), test_loss
 
 
-def adversarial_training(model, method_name, train_loader, test_loader, defence_config):
+def adversarial_training(model, method_name, train_loader, test_loader, defence_config, evaluation_pack):
     print(f'Start adversarial training with training method: {method_name}.')
     method = defences[method_name]
     model = method(model, 'cuda')
-    model = model.generate(train_loader, test_loader, **defense_params[defence_config])
+    model = model.generate(train_loader, test_loader, evaluation_pack, **defense_params[defence_config])
     return model
 
 
@@ -199,7 +201,7 @@ def adversarial_attack(args, model, method_name, test_loader, attack_config):
     correct_orig = 0
     correct_adv = 0
     recall_orig = 0
-    precision_orig =0
+    precision_orig = 0
     recall_adv = 0
     precision_adv = 0
     f1_orig = 0
@@ -238,12 +240,15 @@ def adversarial_attack(args, model, method_name, test_loader, attack_config):
     print(f'Original predictions: {correct_orig}/{total} ({100 * correct_orig / total}%)')
     print(f'Adversarial predictions: {correct_adv}/{total} ({100 * correct_adv / total}%)')
     f = lambda x: np.mean(x) / batch_num
-    row_to_file(args, [f'{100 * correct_orig / total}%',f'{100 * correct_adv / total}%', f(recall_orig), f(recall_adv), f(pred_orig), f(pred_adv), f(f1_orig), f(f1_adv)])
-
+    row_to_file(args, [f'{100 * correct_orig / total}%', f'{100 * correct_adv / total}%', f(recall_orig), f(recall_adv),
+                       f(pred_orig), f(pred_adv), f(f1_orig), f(f1_adv)])
+    return [f'{100 * correct_orig / total}%', f'{100 * correct_adv / total}%', f(recall_orig), f(recall_adv),
+            f(pred_orig), f(pred_adv), f(f1_orig), f(f1_adv)]
 
 
 def row_to_file(args, values):
-    values = [args.identifier, args.batch_size, args.epochs, args.momentum, args.lr, args.save, args.save_adv, args.data, args.resume,
+    values = [args.identifier, args.batch_size, args.epochs, args.momentum, args.lr, args.save, args.save_adv,
+              args.data, args.resume,
               args.model, args.train_reg, args.train_adv, args.adv_attack, args.sparse, args.growth, args.death,
               args.death_rate] \
              + values
@@ -260,6 +265,19 @@ def transparent_cmap(cmap, N=255):
     mycmap._init()
     mycmap._lut[:, -1] = np.linspace(0, 0.8, N + 4)
     return mycmap
+
+
+def track(tracker, device, args, epoch, train_accuracy, train_loss, model, valid_loader):
+    val_acc, val_loss = evaluate(args, model, device, valid_loader)
+    tracker.add('epoch', epoch)
+    tracker.add('train_accuracy', train_accuracy)
+    tracker.add('train_loss', train_loss)
+    tracker.add('val_acc', val_acc)
+    tracker.add('val_loss', val_loss)
+    attack_config = f'{args.adv_attack}_{args.data}'
+    tracker.add('adv_attack_val', adversarial_attack(args, model, args.adv_attack, valid_loader, attack_config))
+    tracker.add('model_size', np.sum([np.count_nonzero(p.cpu().detach().numpy())
+                                      for p in model.parameters()]))
 
 
 def main():
@@ -317,13 +335,20 @@ def main():
                         help='Whether to visualise the model.')
     parser.add_argument('--result_file', type=str, default='results.csv')
 
-    parser.add_argument('--identifier', type=str, help='Used to identify run')
+    parser.add_argument('--identifier', type=str, default=time.time(), help='Used to identify run')
+    parser.add_argument('--track', action='store_true', help='whether to track certain features')
+    parser.add_argument('--tracker_loc', type=str)
+    parser.add_argument('--track_interval', type=int, default=10)
     # ITOP settings
     sparselearning.core.add_sparse_args(parser)
 
     args = parser.parse_args()
     setup_logger(args)
     print_and_log(args)
+
+    if not args.tracker_loc:
+        args.tracker_loc = f'results/tracker_files/{args.save_adv[7:-3]}_{args.identifier}.pt'
+    tracker = InterResultTracker(args.tracker_loc, args=args)
 
     if args.fp16:
         try:
@@ -445,16 +470,16 @@ def main():
                 # if epoch % 10 == 0:
                 #     args.lr = args.lr * 0.1
                 t0 = time.time()
-                train(args, model, device, train_loader, optimizer, epoch, mask)
+                train_accuracy, train_loss = train(args, model, device, train_loader, optimizer, epoch, mask)
                 lr_scheduler.step()
                 if args.valid_split > 0.0:
-                    val_acc = evaluate(args, model, device, valid_loader)
-
-                if val_acc > best_acc:
-                    print('Saving model')
-                    best_acc = val_acc
-                    # torch.save(model.state_dict(), args.save)
-                    save(epoch, model.state_dict(), optimizer, args.save)
+                    if args.track and (epoch % args.track_interval == 0 or epoch == 0):
+                        track(tracker, device, args, epoch, train_accuracy, train_loss, model, valid_loader)
+                # if val_acc > best_acc:
+                #     print('Saving model')
+                #     best_acc = val_acc
+                #     # torch.save(model.state_dict(), args.save)
+                #     save(epoch, model.state_dict(), optimizer, args.save)
             save(epoch, model.state_dict(), optimizer, args.save)
 
             print_and_log('Current learning rate: {0}. Time taken for epoch: {1:.2f} seconds.\n'.format(
@@ -475,7 +500,10 @@ def main():
 
         if args.train_adv:
             defense_config = f'{args.train_adv}_{args.data}'
-            model = adversarial_training(model, args.train_adv, train_loader, test_loader, defense_config)
+            model = adversarial_training(model, args.train_adv, train_loader, test_loader, defense_config,
+                                         {'track': track, 'args': args, 'valid_loader': valid_loader,
+                                          'track_interval': args.track_interval,
+                                          'tracker': tracker})
             save(epoch, model.state_dict(), optimizer, args.save_adv)
 
         if args.print_model_size:
