@@ -13,6 +13,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 import torch.nn.functional as F
 
+
 import numpy as np
 from PIL import Image
 from deeprobust.image.attack.pgd import PGD
@@ -50,9 +51,9 @@ class PGDtraining(BaseDefense):
         self.parse_params(**kwargs)
         torch.manual_seed(100)
         device = torch.device(self.device)
-        optimizer = optim.Adam(self.model.parameters(), self.lr)
+        optimizer = optim.SGD(self.model.parameters(), self.lr)
 
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 100], gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
         save_model = True
         for epoch in range(1, self.epoch + 1):
             print('Training epoch: ', epoch, flush=True)
@@ -152,8 +153,7 @@ class PGDtraining(BaseDefense):
             optimizer.zero_grad()
 
             data, target = data.to(device), target.to(device)
-            epsilon = self.epsilon()
-            data_adv, output = self.adv_data(data, target, ep=epsilon, num_steps=self.num_steps,
+            data_adv, output = self.adv_data(data, target, ep=self.epsilon, num_steps=self.num_steps,
                                              perturb_step_size=self.perturb_step_size)
             loss = self.calculate_loss(output, target)
 
@@ -205,8 +205,7 @@ class PGDtraining(BaseDefense):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             # print adversarial accuracy
-            epsilon = self.epsilon()
-            data_adv, output_adv = self.adv_data(data, target, ep=epsilon, num_steps=self.num_steps)
+            data_adv, output_adv = self.adv_data(data, target, ep=self.epsilon, num_steps=self.num_steps)
 
             test_loss_adv += self.calculate_loss(output_adv, target, redmode='sum').item()  # sum up batch loss
             pred_adv = output_adv.argmax(dim=1, keepdim=True)  # get the index of the max log-probability

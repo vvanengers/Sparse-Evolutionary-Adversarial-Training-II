@@ -94,7 +94,7 @@ def pgd_attack(model,
                   step_size,
                   print_process,
                   bound = 'linf'):
-    epsilon = epsilon()
+    epsilon = epsilon() if callable(epsilon) else epsilon
     out = model(X)
     err = (out.data.max(1)[1] != y.data).float().sum()
     #TODO: find a other way

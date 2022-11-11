@@ -1,60 +1,63 @@
 import numpy as np
 # ---------------------attack config------------------------#
 
-epsilon = lambda: np.abs(np.random.normal(0,0.25,1))[0]
-
+# epsilon = lambda: np.abs(np.random.normal(0,0.25,1))[0]
+epsilon = lambda: 0.1
+eps_att = 0.1
+eps_def = 0.3
+#
 attack_params = {
     "FGSM_MNIST": {
-    'epsilon' : epsilon,
+    'epsilon' : eps_att,
     'order': np.inf,
     'clip_max': None,
     'clip_min': None
     },
 
     "FGSM_CIFAR10": {
-    'epsilon' : epsilon,
+    'epsilon' : eps_att,
     'order': np.inf,
     'clip_max': None,
     'clip_min': None
     },
 
     "FGSM_CIFAR100": {
-    'epsilon' : epsilon,
+    'epsilon' : eps_att,
     'order': np.inf,
     'clip_max': None,
     'clip_min': None
     },
 
     "FGSM_tiny_imagenet": {
-    'epsilon' : epsilon,
+    'epsilon' : eps_att,
     'order': np.inf,
     'clip_max': None,
     'clip_min': None
     },
 
     "PGD_CIFAR10": {
-    'epsilon': 0.1,
+    'epsilon': eps_att,
     'clip_max': 1.0,
     'clip_min': 0.0,
     'print_process': True
     },
 
     "PGD_CIFAR100": {
-    'epsilon' : epsilon,
+    'epsilon' : eps_att,
     'clip_max': 1.0,
     'clip_min': 0.0,
     'print_process': False
     },
 
     "PGD_tiny_imagenet": {
-    'epsilon': epsilon,
+    'epsilon': eps_att,
     'clip_max': 1.0,
     'clip_min': 0.0,
     'print_process': True
     },
 
     "LBFGS_MNIST": {
-    'epsilon': epsilon,
+    'epsilon': eps_att,
     'maxiter': 20,
     'clip_max': 1,
     'clip_min': 0,
@@ -85,80 +88,80 @@ defense_params = {
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr' : 0.01
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr' : 0.1
     },
 
     "PGD_CIFAR10":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr' : 0.01
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr' : 0.1
     },
 
     "PGD_CIFAR100":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr' : 0.01
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr' : 0.1
     },
 
     "PGD_tiny_imagenet":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_pgdtraining_0.3.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr' : 0.01
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr' : 0.1
     },
 
     "FGSM_MNIST":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr_train' : 0.001
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr_train' : 0.1
     },
 
     "FGSM_CIFAR10":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr_train' : 0.001
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr_train' : 0.1
     },
     "FGSM_CIFAR100":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr_train' : 0.001
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr_train' : 0.1
     },
 
     "FGSM_tiny_imagenet":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "mnist_fgsmtraining_0.2.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr_train' : 0.001
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr_train' : 0.1
     },
 
     "FAST_MNIST":{
         'save_dir': "./defense_model",
         'save_model': True,
         'save_name' : "fast_mnist_0.3.pt",
-        'epsilon' : epsilon,
-        'epoch_num' : 30,
-        'lr_train' : 0.001
+        'epsilon' : eps_def,
+        'epoch_num' : 150,
+        'lr_train' : 0.1
     }
 }
 

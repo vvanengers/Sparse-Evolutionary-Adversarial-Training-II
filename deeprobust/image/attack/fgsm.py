@@ -82,7 +82,7 @@ class FGSM(BaseAttack):
 
 
 def fgm(model, image, label, epsilon, order, clip_min, clip_max, device):
-    epsilon = epsilon()
+    epsilon = epsilon() if callable(epsilon) else epsilon
     imageArray = image.cpu().detach().numpy()
     X_fgsm = torch.tensor(imageArray).to(device)
 

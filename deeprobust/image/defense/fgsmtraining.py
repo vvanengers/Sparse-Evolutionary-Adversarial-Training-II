@@ -50,7 +50,9 @@ class FGSMtraining(BaseDefense):
         self.parse_params(**kwargs)
         torch.manual_seed(100)
         device = torch.device(self.device)
-        optimizer = optim.Adam(self.model.parameters(), self.lr_train)
+        optimizer = optim.SGD(self.model.parameters(), self.lr_train)
+
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
 
         for epoch in range(1, self.epoch_num + 1):
             print(epoch, flush=True)
@@ -70,7 +72,7 @@ class FGSMtraining(BaseDefense):
                     print("make new directory and save model in " + './' + self.save_dir)
                     os.mkdir('./' + self.save_dir)
                     torch.save(self.model.state_dict(), os.path.join(self.save_dir, self.save_name))
-
+            scheduler.step()
         return self.model
 
     def parse_params(self,
@@ -135,8 +137,7 @@ class FGSMtraining(BaseDefense):
             optimizer.zero_grad()
 
             data, target = data.to(device), target.to(device)
-            epsilon = self.epsilon()
-            data_adv, output = self.adv_data(data, target, ep = epsilon)
+            data_adv, output = self.adv_data(data, target, ep = self.epsilon)
 
             loss = self.calculate_loss(output, target)
             train_loss += loss.item()
@@ -188,8 +189,7 @@ class FGSMtraining(BaseDefense):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             # print adversarial accuracy
-            epsilon = self.epsilon()
-            data_adv, output_adv = self.adv_data(data, target, ep=epsilon)
+            data_adv, output_adv = self.adv_data(data, target, ep=self.epsilon)
 
             test_loss_adv += self.calculate_loss(output_adv, target, redmode = 'sum').item()  # sum up batch loss
             pred_adv = output_adv.argmax(dim = 1, keepdim = True)  # get the index of the max log-probability
@@ -225,7 +225,7 @@ class FGSMtraining(BaseDefense):
 
         # """
         adversary = FGSM(self.model)
-        data_adv = adversary.generate(data, output.flatten(), epsilon = ep)
+        data_adv = adversary.generate(data, output.flatten(), epsilon=ep)
         output = self.model(data_adv)
 
         return data_adv, output

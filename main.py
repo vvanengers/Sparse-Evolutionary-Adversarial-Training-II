@@ -26,7 +26,7 @@ import sparselearning
 
 from sparselearning.core import Masking, CosineDecay, LinearDecay
 from sparselearning.models import AlexNet, VGG16, LeNet_300_100, LeNet_5_Caffe, WideResNet, MLP_CIFAR10, ResNet34, \
-    ResNet18, ResNet50
+    ResNet18, ResNet50, ResNet101
 from sparselearning.utils import get_mnist_dataloaders, get_cifar10_dataloaders, get_cifar100_dataloaders, \
     get_tinyimagenet_dataloaders
 
@@ -48,6 +48,7 @@ models = {
     'MLPCIFAR10': (MLP_CIFAR10, []),
     'lenet5': (LeNet_5_Caffe, []),
     'lenet300-100': (LeNet_300_100, []),
+    'ResNet101': (()),
     'ResNet50': (()),
     'ResNet34': (()),
     'ResNet18': (()),
@@ -394,6 +395,8 @@ def main():
             model = ResNet34(c=c, stride=stride).to(device)
         elif args.model == 'ResNet50':
             model = ResNet50(c=c).to(device)
+        elif args.model == 'ResNet101':
+            model = ResNet101(c=c).to(device)
         else:
             cls, cls_args = models[args.model]
             model = cls(*(cls_args + [args.save_features, args.bench])).to(device)
@@ -486,7 +489,7 @@ def main():
                 optimizer.param_groups[0]['lr'], time.time() - t0))
             print('Testing model')
             model.load_state_dict(torch.load(args.save)['state_dict'])
-            evaluate(args, model, device, test_loader, is_test_set=True)
+            tracker.add('clean_test_acc', evaluate(args, model, device, test_loader, is_test_set=True))
             print_and_log("\nIteration end: {0}/{1}\n".format(i + 1, args.iters))
             if args.sparse:
                 layer_fired_weights, total_fired_weights = mask.fired_masks_update()
@@ -512,7 +515,7 @@ def main():
 
         if args.adv_attack:
             attack_config = f'{args.adv_attack}_{args.data}'
-            adversarial_attack(args, model, args.adv_attack, test_loader, attack_config)
+            tracker.add('adv_test_acc', adversarial_attack(args, model, args.adv_attack, test_loader, attack_config))
 
         if args.visualise:
             for data, target in train_loader:
